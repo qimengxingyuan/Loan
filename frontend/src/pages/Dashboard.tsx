@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ChevronRight, Wallet } from 'lucide-react';
 import { MobileLayout } from '../components/Layout/MobileLayout';
 import { Card, StatCard } from '../components/UI/Card';
-import { ProgressRing, ProgressBar } from '../components/UI/ProgressRing';
+import { MultiProgressRing, ProgressBar } from '../components/UI/ProgressRing';
 
 
 import { useDashboardStore } from '../stores/dashboardStore';
@@ -91,27 +91,50 @@ export default function Dashboard() {
       {/* Overall Progress */}
       <Card className="mb-8">
         <div className="flex items-center gap-6">
-          <ProgressRing progress={data?.overallProgress || 0} size={110} strokeWidth={12}>
+          <MultiProgressRing 
+            segments={[
+              { value: data?.totalPaidPrincipal || 0, color: 'var(--success)' }, // 已还本金
+              { value: data?.totalPaidInterest || 0, color: 'var(--warning)' },  // 已付利息
+              { value: data?.totalRemainingPrincipal || 0, color: 'var(--border)' } // 待还本金作为第三段填满
+            ]} 
+            size={110} 
+            strokeWidth={12}
+            trackColor="transparent"
+          >
             <div className="text-center">
               <div className="text-[26px] font-bold text-[var(--accent)] font-mono leading-none">
                 {data?.overallProgress.toFixed(1)}%
               </div>
-              <div className="text-small text-[var(--text-secondary)] mt-1">已还进度</div>
+              <div className="text-small text-[var(--text-secondary)] mt-1">本金已还</div>
             </div>
-          </ProgressRing>
+          </MultiProgressRing>
           <div className="flex-1">
-            <div className="text-caption text-[var(--text-secondary)] mb-2 font-medium">整体还款进度</div>
-            <ProgressBar progress={data?.overallProgress || 0} height={8} showLabel={false} />
-            <div className="flex justify-between mt-4 text-small">
-              <div>
-                <div className="text-caption text-[var(--text-secondary)] mb-0.5">已还总额</div>
-                <div className="text-body-medium font-mono text-[var(--success)] font-semibold">
-                  ¥{formatCurrency((data?.totalPaidPrincipal || 0) + (data?.totalPaidInterest || 0))}
+            <div className="text-caption text-[var(--text-secondary)] mb-2 font-medium">还款明细分布</div>
+            <div className="space-y-2 mt-3">
+              <div className="flex justify-between items-center text-small">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--success)]"></div>
+                  <span className="text-[var(--text-secondary)]">已还本金</span>
+                </div>
+                <div className="font-mono font-semibold text-[var(--text-primary)]">
+                  ¥{formatCurrency(data?.totalPaidPrincipal || 0)}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-caption text-[var(--text-secondary)] mb-0.5">剩余应还</div>
-                <div className="text-body-medium font-mono text-[var(--primary)] font-semibold">
+              <div className="flex justify-between items-center text-small">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--warning)]"></div>
+                  <span className="text-[var(--text-secondary)]">已还利息</span>
+                </div>
+                <div className="font-mono font-semibold text-[var(--text-primary)]">
+                  ¥{formatCurrency(data?.totalPaidInterest || 0)}
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-small pt-1 border-t border-[var(--border)]">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--border)]"></div>
+                  <span className="text-[var(--text-secondary)]">剩余应还本金</span>
+                </div>
+                <div className="font-mono font-semibold text-[var(--primary)]">
                   ¥{formatCurrency(data?.totalRemainingPrincipal || 0)}
                 </div>
               </div>
