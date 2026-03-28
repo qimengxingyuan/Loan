@@ -62,4 +62,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Start the application
-CMD ["node", "dist/index.js"]
+CMD echo "=== Container Starting ===" && \
+    echo "Current directory: $(pwd)" && \
+    ls -la && \
+    echo "dist/ directory contents:" && \
+    ls -R dist/ && \
+    echo "=== Executing Node ===" && \
+    node dist/backend/src/index.js
