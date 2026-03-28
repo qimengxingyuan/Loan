@@ -38,11 +38,18 @@ RUN npm ci --production --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/* /var/cache/apk/*
 
+# Debug: Check if source directories exist in builder stages
+RUN --from=backend-builder ls -la /app/backend/dist/ || echo "Backend dist not found"
+RUN --from=frontend-builder ls -la /app/frontend/dist/ || echo "Frontend dist not found"
+
 # Copy built backend
 COPY --from=backend-builder /app/backend/dist ./dist
 
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist ./public
+
+# Debug: Verify files after copy
+RUN echo "=== After copy ===" && ls -la /app/ && ls -la /app/dist/ 2>/dev/null || echo "dist directory missing"
 
 # Create data directory
 RUN mkdir -p /app/data
