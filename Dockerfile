@@ -18,9 +18,7 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --prefer-offline --no-audit
 COPY backend/ ./
-RUN echo "=== Before build ===" && ls -la && ls -la src/
-RUN npm run build 2>&1
-RUN echo "=== After build ===" && ls -la && ls -la dist/ 2>/dev/null || echo "dist directory not found"
+RUN npm run build
 
 # Production stage
 FROM node:20-alpine AS production
@@ -35,17 +33,11 @@ RUN npm ci --production --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/* /var/cache/apk/*
 
-# Copy built backend
-COPY --from=backend-builder /app/backend/dist ./dist
+# Copy built backend - note the trailing slash to copy contents
+COPY --from=backend-builder /app/backend/dist/ ./dist/
 
 # Copy built frontend
-COPY --from=frontend-builder /app/frontend/dist ./public
-
-# Debug: Verify files after copy
-RUN echo "=== Verifying dist directory ===" && \
-    ls -la /app/ && \
-    ls -la /app/dist/ && \
-    ls -la /app/dist/index.js
+COPY --from=frontend-builder /app/frontend/dist/ ./public/
 
 # Create data directory
 RUN mkdir -p /app/data
