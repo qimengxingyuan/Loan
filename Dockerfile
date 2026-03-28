@@ -2,29 +2,36 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --prefer-offline --no-audit
 COPY frontend/ ./
 RUN npm run build
 
 # Build stage for backend
 FROM node:20-alpine AS backend-builder
 WORKDIR /app
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
 # Copy shared directory first
 COPY shared/ ./shared/
 # Copy backend
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm ci --prefer-offline --no-audit
 COPY backend/ ./
 RUN npm run build
 
-# Production stage
+# Production stage - use distroless or minimal image
 FROM node:20-alpine AS production
 WORKDIR /app
 
+# Install runtime dependencies for SQLite
+RUN apk add --no-cache libstdc++
+
 # Install production dependencies for backend
 COPY backend/package*.json ./
-RUN npm ci --production && npm cache clean --force
+RUN npm ci --production --no-audit && \
+    npm cache clean --force && \
+    rm -rf /tmp/* /var/cache/apk/*
 
 # Copy built backend
 COPY --from=backend-builder /app/backend/dist ./dist
@@ -34,6 +41,12 @@ COPY --from=frontend-builder /app/frontend/dist ./public
 
 # Create data directory
 RUN mkdir -p /app/data
+
+# Use non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app/data
+USER nodejs
 
 # Expose port
 EXPOSE 3000
