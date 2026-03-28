@@ -42,12 +42,6 @@ COPY --from=backend-builder /app/backend/dist /app/dist
 # Copy built frontend directly into /app/public
 COPY --from=frontend-builder /app/frontend/dist /app/public
 
-# Use non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /app/data /app/dist /app/public
-USER nodejs
-
 # Expose port
 EXPOSE 3000
 
@@ -62,10 +56,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Start the application
-CMD echo "=== Container Starting ===" && \
-    echo "Current directory: $(pwd)" && \
-    ls -la && \
-    echo "dist/ directory contents:" && \
-    ls -R dist/ && \
-    echo "=== Executing Node ===" && \
-    node dist/backend/src/index.js
+CMD ["node", "dist/backend/src/index.js"]
