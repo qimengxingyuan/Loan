@@ -18,9 +18,14 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --prefer-offline --no-audit
 COPY backend/ ./
-RUN npm run build && ls -la dist/
+# Debug: show directory structure before build
+RUN echo "=== Directory structure ===" && ls -la && echo "=== Shared directory ===" && ls -la ../shared/
+# Build with error output
+RUN npm run build 2>&1 || (echo "=== Build failed, checking files ===" && cat tsconfig.json && exit 1)
+# Debug: show dist directory after build
+RUN echo "=== Dist directory ===" && ls -la dist/
 
-# Production stage - use distroless or minimal image
+# Production stage
 FROM node:20-alpine AS production
 WORKDIR /app
 
@@ -33,9 +38,8 @@ RUN npm ci --production --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/* /var/cache/apk/*
 
-# Copy built backend - ensure directory exists first
-RUN mkdir -p /app/dist
-COPY --from=backend-builder /app/backend/dist/ /app/dist/
+# Copy built backend
+COPY --from=backend-builder /app/backend/dist ./dist
 
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist ./public
