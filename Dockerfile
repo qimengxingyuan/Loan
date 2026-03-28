@@ -33,25 +33,14 @@ RUN npm ci --production --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/* /var/cache/apk/*
 
-# Create dist directory and copy files using a different approach
-RUN mkdir -p /app/dist /app/public
-
-# Copy built backend - use cp -r to copy contents
-COPY --from=backend-builder /app/backend/dist /tmp/backend-dist
-RUN cp -r /tmp/backend-dist/* /app/dist/ 2>/dev/null || cp -r /tmp/backend-dist /app/dist-tmp && mv /app/dist-tmp/* /app/dist/
-
-# Copy built frontend
-COPY --from=frontend-builder /app/frontend/dist /tmp/frontend-dist
-RUN cp -r /tmp/frontend-dist/* /app/public/ 2>/dev/null || cp -r /tmp/frontend-dist /app/public-tmp && mv /app/public-tmp/* /app/public/
-
-# Debug: Verify files after copy
-RUN echo "=== Verifying files after copy ===" && \
-    ls -la /app/ && \
-    ls -la /app/dist/ && \
-    head -5 /app/dist/index.js
-
 # Create data directory
 RUN mkdir -p /app/data
+
+# Copy built backend directly into /app/dist
+COPY --from=backend-builder /app/backend/dist /app/dist
+
+# Copy built frontend directly into /app/public
+COPY --from=frontend-builder /app/frontend/dist /app/public
 
 # Use non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
