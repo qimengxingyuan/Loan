@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Wallet, ChevronRight, Clock } from 'lucide-react';
+import { TrendingUp, Wallet, Clock } from 'lucide-react';
 import { MobileLayout } from '../components/Layout/MobileLayout';
 import { Card } from '../components/UI/Card';
 import { ProgressRing } from '../components/UI/ProgressRing';

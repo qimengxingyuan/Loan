@@ -9,7 +9,7 @@ import { DatePicker } from '../components/UI/DatePicker';
 import { useLoanStore } from '../stores/loanStore';
 import { useFixedDebtStore } from '../stores/fixedDebtStore';
 import { usePrepaymentStore } from '../stores/prepaymentStore';
-import { RepaymentMethod, PrepaymentType, type RateChange } from '../types';
+import { RepaymentMethod, type RateChange } from '../types';
 
 export default function LoanManager() {
   const { loans, fetchLoans, deleteLoan, createLoan, updateLoan, currentLoan, fetchLoanById, addRateChange, deleteRateChange, error: loanError, loading: loanLoading } = useLoanStore();
@@ -58,11 +58,16 @@ export default function LoanManager() {
   });
 
   // Prepayment form state
-  const [prepaymentForm, setPrepaymentForm] = useState({
+  const [prepaymentForm, setPrepaymentForm] = useState<{
+    loanId: string;
+    paymentDate: string;
+    amount: string;
+    type: 'reduce_term' | 'reduce_payment';
+  }>({
     loanId: '',
     paymentDate: new Date().toISOString().split('T')[0],
     amount: '',
-    type: PrepaymentType.REDUCE_TERM
+    type: 'reduce_term'
   });
 
   // Rate change form state
@@ -106,13 +111,13 @@ export default function LoanManager() {
     }
   };
 
-  const getPrepaymentTypeLabel = (type: PrepaymentType) => {
-    return type === PrepaymentType.REDUCE_TERM ? '缩短期限' : '减少月供';
+  const getPrepaymentTypeLabel = (type: 'reduce_term' | 'reduce_payment') => {
+    return type === 'reduce_term' ? '缩短期限' : '减少月供';
   };
 
   const handleCreateLoan = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data: CreateLoanRequest = {
+    const data = {
       name: loanForm.name,
       totalAmount: parseFloat(loanForm.totalAmount),
       totalMonths: parseInt(loanForm.totalMonths),
@@ -195,7 +200,7 @@ export default function LoanManager() {
       loanId: '',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: '',
-      type: PrepaymentType.REDUCE_TERM
+      type: 'reduce_term'
     });
   };
 
@@ -246,7 +251,8 @@ export default function LoanManager() {
       method: RepaymentMethod.EQUAL_INSTALLMENT,
       loanDate: new Date().toISOString().split('T')[0],
       paymentDay: '',
-      initialRate: ''
+      initialRate: '',
+      minimumPayment: ''
     });
     setShowLoanSheet(true);
   };
@@ -269,7 +275,7 @@ export default function LoanManager() {
       loanId: loans.length > 0 ? loans[0].id : '',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: '',
-      type: PrepaymentType.REDUCE_TERM
+      type: 'reduce_term'
     });
     setShowPrepaymentSheet(true);
   };
@@ -439,7 +445,7 @@ export default function LoanManager() {
                             <div className="text-right">
                               <div className="text-small text-[var(--text-secondary)]">利率</div>
                               <div className="text-body-medium font-mono text-[var(--accent)]">
-                                {((loan.currentRate || loan.initialRate) * 100).toFixed(2)}%
+                                {(loan.initialRate * 100).toFixed(2)}%
                               </div>
                             </div>
                           </div>
@@ -845,9 +851,9 @@ export default function LoanManager() {
             <div className="flex gap-3 bg-[var(--background)] p-1 rounded-2xl">
               <button
                 type="button"
-                onClick={() => setPrepaymentForm({ ...prepaymentForm, type: PrepaymentType.REDUCE_TERM })}
+                onClick={() => setPrepaymentForm({ ...prepaymentForm, type: 'reduce_term' })}
                 className={`flex-1 py-3 rounded-xl text-body-medium transition-all ${
-                  prepaymentForm.type === PrepaymentType.REDUCE_TERM
+                  prepaymentForm.type === 'reduce_term'
                     ? 'bg-white text-[var(--text-primary)] shadow-sm'
                     : 'text-[var(--text-secondary)]'
                 }`}
@@ -856,9 +862,9 @@ export default function LoanManager() {
               </button>
               <button
                 type="button"
-                onClick={() => setPrepaymentForm({ ...prepaymentForm, type: PrepaymentType.REDUCE_PAYMENT })}
+                onClick={() => setPrepaymentForm({ ...prepaymentForm, type: 'reduce_payment' as const })}
                 className={`flex-1 py-3 rounded-xl text-body-medium transition-all ${
-                  prepaymentForm.type === PrepaymentType.REDUCE_PAYMENT
+                  prepaymentForm.type === 'reduce_payment'
                     ? 'bg-white text-[var(--text-primary)] shadow-sm'
                     : 'text-[var(--text-secondary)]'
                 }`}
@@ -972,7 +978,7 @@ export default function LoanManager() {
                             {(rateChange.annualRate * 100).toFixed(2)}%
                           </div>
                           <div className="text-small text-[var(--text-secondary)]">
-                            {rateChange.effectiveDate} 至 {rateChange.endDate || '结束'}
+                            {rateChange.effectiveDate} 生效
                           </div>
                         </div>
                       </div>

@@ -10,7 +10,6 @@ import { ProgressRing, ProgressBar } from '../components/UI/ProgressRing';
 import { useDashboardStore } from '../stores/dashboardStore';
 import { useLoanStore } from '../stores/loanStore';
 import { useFixedDebtStore } from '../stores/fixedDebtStore';
-import { RepaymentMethod } from '../types';
 
 export default function Dashboard() {
   const { dashboardData: data, fetchDashboardData: fetchDashboard } = useDashboardStore();

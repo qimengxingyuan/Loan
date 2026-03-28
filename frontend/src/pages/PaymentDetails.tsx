@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronDown, Calendar, CheckCircle2, Landmark, ChevronRight, Zap } from 'lucide-react';
+import { ChevronDown, Calendar, CheckCircle2, Landmark, Zap } from 'lucide-react';
 import { MobileLayout } from '../components/Layout/MobileLayout';
 import { Card } from '../components/UI/Card';
 import { Sheet } from '../components/UI/Sheet';

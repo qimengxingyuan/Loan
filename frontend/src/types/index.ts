@@ -1,10 +1,11 @@
 // 还款方式
-export enum RepaymentMethod {
-  EQUAL_INSTALLMENT = 'equal_installment',
-  EQUAL_PRINCIPAL = 'equal_principal',
-  EQUAL_PRINCIPAL_INTEREST = 'equal_principal_interest',
-  FREE_REPAYMENT = 'free_repayment'
-}
+export const RepaymentMethod = {
+  EQUAL_INSTALLMENT: 'equal_installment',
+  EQUAL_PRINCIPAL: 'equal_principal',
+  EQUAL_PRINCIPAL_INTEREST: 'equal_principal_interest',
+  FREE_REPAYMENT: 'free_repayment'
+} as const;
+export type RepaymentMethod = typeof RepaymentMethod[keyof typeof RepaymentMethod];
 
 // 提前还款类型
 export const PrepaymentType = {
