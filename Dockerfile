@@ -8,6 +8,10 @@ RUN npm run build
 
 # Build stage for backend
 FROM node:20-alpine AS backend-builder
+WORKDIR /app
+# Copy shared directory first
+COPY shared/ ./shared/
+# Copy backend
 WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci
