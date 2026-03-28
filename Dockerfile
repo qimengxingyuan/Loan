@@ -39,6 +39,12 @@ COPY --from=backend-builder /app/backend/dist/ ./dist/
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist/ ./public/
 
+# Debug: Verify files after copy
+RUN echo "=== Verifying files after copy ===" && \
+    ls -la /app/ && \
+    ls -la /app/dist/ && \
+    cat /app/dist/index.js | head -5
+
 # Create data directory
 RUN mkdir -p /app/data
 
