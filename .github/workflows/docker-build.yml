@@ -12,7 +12,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-amd64:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,99 +34,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push AMD64 image
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=,suffix=,format=short
+            latest
+
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ghcr.io/${{ github.repository | lower }}:${{ github.ref_name }}-amd64
-            ghcr.io/${{ github.repository | lower }}:${{ github.sha }}-amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
-
-  build-arm64:
-    runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push ARM64 image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ghcr.io/${{ github.repository | lower }}:${{ github.ref_name }}-arm64
-            ghcr.io/${{ github.repository | lower }}:${{ github.sha }}-arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/arm64
-
-  merge-manifests:
-    runs-on: ubuntu-latest
-    needs: [build-amd64, build-arm64]
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
-    steps:
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create and push multi-arch manifest
-        run: |
-          # Convert repository name to lowercase
-          REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          BRANCH="${{ github.ref_name }}"
-          SHA="${{ github.sha }}"
-          
-          # Define tags
-          BRANCH_TAG="ghcr.io/${REPO_NAME}:${BRANCH}"
-          SHA_TAG="ghcr.io/${REPO_NAME}:${SHA}"
-          LATEST_TAG="ghcr.io/${REPO_NAME}:latest"
-          
-          echo "Creating multi-arch manifests..."
-          echo "Branch tag: ${BRANCH_TAG}"
-          echo "SHA tag: ${SHA_TAG}"
-          echo "Latest tag: ${LATEST_TAG}"
-          
-          # Create and push manifest for branch tag
-          docker buildx imagetools create -t "${BRANCH_TAG}" \
-            "${BRANCH_TAG}-amd64" \
-            "${BRANCH_TAG}-arm64"
-          
-          # Create and push manifest for SHA tag
-          docker buildx imagetools create -t "${SHA_TAG}" \
-            "${SHA_TAG}-amd64" \
-            "${SHA_TAG}-arm64"
-          
-          # Create and push manifest for latest tag
-          docker buildx imagetools create -t "${LATEST_TAG}" \
-            "${BRANCH_TAG}-amd64" \
-            "${BRANCH_TAG}-arm64"
-          
-          echo "Multi-arch manifests created successfully!"
