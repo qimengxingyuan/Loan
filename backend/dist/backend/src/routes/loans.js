@@ -15,11 +15,13 @@ router.get('/', (req, res) => {
 // 创建贷款
 router.post('/', (req, res) => {
     try {
+        console.log('Creating loan with data:', req.body);
         const loan = LoanService.createLoan(req.body);
         res.status(201).json({ success: true, data: loan });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to create loan' });
+        console.error('Error creating loan:', error);
+        res.status(500).json({ success: false, error: `Failed to create loan: ${error instanceof Error ? error.message : 'Unknown error'}` });
     }
 });
 // 获取单个贷款

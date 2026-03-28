@@ -5,7 +5,29 @@ export class LoanService {
     static getAllLoans() {
         const stmt = db.prepare('SELECT * FROM loans ORDER BY created_at DESC');
         const rows = stmt.all();
-        return rows.map(row => this.mapRowToLoan(row));
+        const loans = rows.map(row => this.mapRowToLoan(row));
+        // 为每个贷款计算当前适用利率
+        const today = new Date().toISOString().split('T')[0];
+        for (const loan of loans) {
+            const currentRate = this.getCurrentRate(loan.id, loan.initialRate, today);
+            loan.currentRate = currentRate;
+        }
+        return loans;
+    }
+    // 获取指定日期的适用利率
+    static getCurrentRate(loanId, initialRate, date) {
+        const rateChangesStmt = db.prepare('SELECT * FROM rate_changes WHERE loan_id = ? ORDER BY effective_date');
+        const rateChanges = rateChangesStmt.all(loanId);
+        let currentRate = initialRate;
+        for (const rc of rateChanges) {
+            // 如果利率生效日期小于等于指定日期，且没有结束日期或结束日期大于指定日期
+            if (rc.effective_date <= date) {
+                if (!rc.end_date || rc.end_date > date) {
+                    currentRate = rc.annual_rate;
+                }
+            }
+        }
+        return currentRate;
     }
     // 获取单个贷款
     static getLoanById(id) {
@@ -28,10 +50,10 @@ export class LoanService {
         const id = uuidv4();
         const now = new Date().toISOString();
         const stmt = db.prepare(`
-      INSERT INTO loans (id, name, total_amount, total_months, method, first_payment_date, payment_day, initial_rate, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO loans (id, name, total_amount, total_months, method, loan_date, payment_day, initial_rate, minimum_payment, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(id, request.name, request.totalAmount, request.totalMonths, request.method, request.firstPaymentDate, request.paymentDay, request.initialRate, now, now);
+        stmt.run(id, request.name, request.totalAmount, request.totalMonths, request.method, request.loanDate, request.paymentDay, request.initialRate, request.minimumPayment || null, now, now);
         return this.getLoanById(id);
     }
     // 更新贷款
@@ -58,9 +80,9 @@ export class LoanService {
             updates.push('method = ?');
             values.push(request.method);
         }
-        if (request.firstPaymentDate !== undefined) {
-            updates.push('first_payment_date = ?');
-            values.push(request.firstPaymentDate);
+        if (request.loanDate !== undefined) {
+            updates.push('loan_date = ?');
+            values.push(request.loanDate);
         }
         if (request.paymentDay !== undefined) {
             updates.push('payment_day = ?');
@@ -69,6 +91,10 @@ export class LoanService {
         if (request.initialRate !== undefined) {
             updates.push('initial_rate = ?');
             values.push(request.initialRate);
+        }
+        if (request.minimumPayment !== undefined) {
+            updates.push('minimum_payment = ?');
+            values.push(request.minimumPayment);
         }
         updates.push('updated_at = ?');
         values.push(now);
@@ -88,14 +114,15 @@ export class LoanService {
         const id = uuidv4();
         const now = new Date().toISOString();
         const stmt = db.prepare(`
-      INSERT INTO rate_changes (id, loan_id, effective_date, annual_rate, created_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO rate_changes (id, loan_id, effective_date, end_date, annual_rate, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(id, loanId, request.effectiveDate, request.annualRate, now);
+        stmt.run(id, loanId, request.effectiveDate, request.endDate || null, request.annualRate, now);
         return {
             id,
             loanId,
             effectiveDate: request.effectiveDate,
+            endDate: request.endDate,
             annualRate: request.annualRate,
             createdAt: now,
         };
@@ -138,9 +165,10 @@ export class LoanService {
             totalAmount: row.total_amount,
             totalMonths: row.total_months,
             method: row.method,
-            firstPaymentDate: row.first_payment_date,
+            loanDate: row.loan_date,
             paymentDay: row.payment_day,
             initialRate: row.initial_rate,
+            minimumPayment: row.minimum_payment,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -151,6 +179,7 @@ export class LoanService {
             id: row.id,
             loanId: row.loan_id,
             effectiveDate: row.effective_date,
+            endDate: row.end_date,
             annualRate: row.annual_rate,
             createdAt: row.created_at,
         };

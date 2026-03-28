@@ -10,7 +10,7 @@ import forecastRouter from './routes/forecast.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3007;
 const STATIC_PATH = process.env.STATIC_PATH || path.join(__dirname, '../../public');
 // 初始化数据库
 initDatabase();
