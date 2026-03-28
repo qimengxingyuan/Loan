@@ -33,11 +33,11 @@ RUN npm ci --production --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/* /var/cache/apk/*
 
-# Copy built backend - note the trailing slash to copy contents
-COPY --from=backend-builder /app/backend/dist/ ./dist/
+# Copy built backend - use wildcard to copy contents
+COPY --from=backend-builder /app/backend/dist/* ./dist/
 
 # Copy built frontend
-COPY --from=frontend-builder /app/frontend/dist/ ./public/
+COPY --from=frontend-builder /app/frontend/dist/* ./public/
 
 # Debug: Verify files after copy
 RUN echo "=== Verifying files after copy ===" && \
