@@ -33,17 +33,22 @@ RUN npm ci --production --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/* /var/cache/apk/*
 
-# Copy built backend - use wildcard to copy contents
-COPY --from=backend-builder /app/backend/dist/* ./dist/
+# Create dist directory and copy files using a different approach
+RUN mkdir -p /app/dist /app/public
+
+# Copy built backend - use cp -r to copy contents
+COPY --from=backend-builder /app/backend/dist /tmp/backend-dist
+RUN cp -r /tmp/backend-dist/* /app/dist/ 2>/dev/null || cp -r /tmp/backend-dist /app/dist-tmp && mv /app/dist-tmp/* /app/dist/
 
 # Copy built frontend
-COPY --from=frontend-builder /app/frontend/dist/* ./public/
+COPY --from=frontend-builder /app/frontend/dist /tmp/frontend-dist
+RUN cp -r /tmp/frontend-dist/* /app/public/ 2>/dev/null || cp -r /tmp/frontend-dist /app/public-tmp && mv /app/public-tmp/* /app/public/
 
 # Debug: Verify files after copy
 RUN echo "=== Verifying files after copy ===" && \
     ls -la /app/ && \
     ls -la /app/dist/ && \
-    cat /app/dist/index.js | head -5
+    head -5 /app/dist/index.js
 
 # Create data directory
 RUN mkdir -p /app/data
