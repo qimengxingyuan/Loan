@@ -18,7 +18,7 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --prefer-offline --no-audit
 COPY backend/ ./
-RUN npm run build
+RUN npm run build && ls -la dist/
 
 # Production stage - use distroless or minimal image
 FROM node:20-alpine AS production
@@ -33,8 +33,9 @@ RUN npm ci --production --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/* /var/cache/apk/*
 
-# Copy built backend
-COPY --from=backend-builder /app/backend/dist ./dist
+# Copy built backend - ensure directory exists first
+RUN mkdir -p /app/dist
+COPY --from=backend-builder /app/backend/dist/ /app/dist/
 
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist ./public
