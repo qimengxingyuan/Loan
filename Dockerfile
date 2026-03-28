@@ -18,7 +18,9 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --prefer-offline --no-audit
 COPY backend/ ./
-RUN npm run build
+RUN echo "=== Before build ===" && ls -la && ls -la src/
+RUN npm run build 2>&1
+RUN echo "=== After build ===" && ls -la && ls -la dist/ 2>/dev/null || echo "dist directory not found"
 
 # Production stage
 FROM node:20-alpine AS production
