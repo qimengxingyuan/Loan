@@ -34,26 +34,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=,suffix=,format=short
-
       - name: Build and push AMD64 image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-amd64
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ghcr.io/${{ github.repository | lower }}:${{ github.ref_name }}-amd64
+            ghcr.io/${{ github.repository | lower }}:${{ github.sha }}-amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
@@ -80,26 +68,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=,suffix=,format=short
-
       - name: Build and push ARM64 image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-arm64
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ghcr.io/${{ github.repository | lower }}:${{ github.ref_name }}-arm64
+            ghcr.io/${{ github.repository | lower }}:${{ github.sha }}-arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/arm64
@@ -123,24 +99,34 @@ jobs:
 
       - name: Create and push multi-arch manifest
         run: |
-          # Extract the base tags (convert to lowercase)
+          # Convert repository name to lowercase
           REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          BRANCH_TAG="ghcr.io/${REPO_NAME}:${{ github.ref_name }}"
-          SHA_TAG="ghcr.io/${REPO_NAME}:${{ github.sha }}"
+          BRANCH="${{ github.ref_name }}"
+          SHA="${{ github.sha }}"
           
-          # Create and push manifests for each tag
+          # Define tags
+          BRANCH_TAG="ghcr.io/${REPO_NAME}:${BRANCH}"
+          SHA_TAG="ghcr.io/${REPO_NAME}:${SHA}"
+          LATEST_TAG="ghcr.io/${REPO_NAME}:latest"
+          
+          echo "Creating multi-arch manifests..."
+          echo "Branch tag: ${BRANCH_TAG}"
+          echo "SHA tag: ${SHA_TAG}"
+          echo "Latest tag: ${LATEST_TAG}"
+          
+          # Create and push manifest for branch tag
           docker buildx imagetools create -t "${BRANCH_TAG}" \
             "${BRANCH_TAG}-amd64" \
             "${BRANCH_TAG}-arm64"
           
+          # Create and push manifest for SHA tag
           docker buildx imagetools create -t "${SHA_TAG}" \
             "${SHA_TAG}-amd64" \
             "${SHA_TAG}-arm64"
           
-          # Create and push latest tag
-          LATEST_TAG="ghcr.io/${REPO_NAME}:latest"
+          # Create and push manifest for latest tag
           docker buildx imagetools create -t "${LATEST_TAG}" \
             "${BRANCH_TAG}-amd64" \
             "${BRANCH_TAG}-arm64"
           
-          echo "Multi-arch manifests created successfully"
+          echo "Multi-arch manifests created successfully!"
