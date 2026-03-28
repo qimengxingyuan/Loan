@@ -123,9 +123,10 @@ jobs:
 
       - name: Create and push multi-arch manifest
         run: |
-          # Extract the base tags
-          BRANCH_TAG="ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
-          SHA_TAG="ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          # Extract the base tags (convert to lowercase)
+          REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          BRANCH_TAG="ghcr.io/${REPO_NAME}:${{ github.ref_name }}"
+          SHA_TAG="ghcr.io/${REPO_NAME}:${{ github.sha }}"
           
           # Create and push manifests for each tag
           docker buildx imagetools create -t "${BRANCH_TAG}" \
@@ -137,7 +138,7 @@ jobs:
             "${SHA_TAG}-arm64"
           
           # Create and push latest tag
-          LATEST_TAG="ghcr.io/${{ github.repository }}:latest"
+          LATEST_TAG="ghcr.io/${REPO_NAME}:latest"
           docker buildx imagetools create -t "${LATEST_TAG}" \
             "${BRANCH_TAG}-amd64" \
             "${BRANCH_TAG}-arm64"
