@@ -1,0 +1,254 @@
+@import "tailwindcss";
+
+@theme {
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+  --color-background: var(--background);
+  --color-foreground: var(--text-primary);
+  
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Pro Rounded', 'SF Mono', ui-monospace, monospace;
+}
+
+:root {
+  /* Modern App Color System - iOS/Modern inspired */
+  --primary: #000000;
+  --primary-light: #333333;
+  --accent: #007AFF;
+  --accent-light: #5AC8FA;
+  --success: #34C759;
+  --warning: #FF9500;
+  --danger: #FF3B30;
+  --background: #F2F2F7;
+  --surface: #FFFFFF;
+  
+  /* Text Colors */
+  --text-primary: #1C1C1E;
+  --text-secondary: #8E8E93;
+  --text-tertiary: #C7C7CC;
+  
+  /* Borders & Dividers */
+  --border: rgba(60, 60, 67, 0.08);
+  --divider: rgba(60, 60, 67, 0.12);
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.05);
+  
+  /* Safe Area */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--background);
+  overflow-x: hidden;
+  color: var(--text-primary);
+}
+
+#root {
+  width: 100%;
+  max-width: 414px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--background);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(0,0,0,0.05);
+}
+
+/* Modern Typography */
+.text-display {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.text-title-1 {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.text-title-2 {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.text-title-3 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.text-body {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.text-body-medium {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.text-caption {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0em;
+}
+
+.text-caption-medium {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0em;
+}
+
+.text-small {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Touch Targets */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Safe Area Padding */
+.safe-top {
+  padding-top: max(env(safe-area-inset-top, 20px), 20px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Card Press Effect */
+.card-press {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-press:active {
+  transform: scale(0.96);
+}
+
+/* Gradient Backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 100%);
+}
+
+.gradient-mesh {
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(0, 122, 255, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(52, 199, 89, 0.05) 0px, transparent 50%);
+}
+
+/* Animation Classes */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Number Font */
+.font-mono {
+  font-family: 'SF Pro Rounded', 'SF Mono', SFMono-Regular, ui-monospace, monospace;
+  font-feature-settings: 'tnum';
+}
