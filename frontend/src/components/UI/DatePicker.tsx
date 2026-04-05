@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface DatePickerProps {
   value: string;
@@ -26,7 +27,12 @@ export function DatePicker({
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 当value变化时，更新viewDate
   useEffect(() => {
@@ -189,32 +195,33 @@ export function DatePicker({
       </button>
 
       {/* 日期选择弹窗 */}
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* 遮罩层 */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-[100]"
-              style={{ maxWidth: '414px', margin: '0 auto' }}
-              onClick={() => {
-                setIsOpen(false);
-                setShowYearPicker(false);
-              }}
-            />
+      {mounted && createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <div className="fixed inset-0 z-[100] pointer-events-none">
+              {/* 遮罩层 */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 pointer-events-auto"
+                style={{ maxWidth: '414px', margin: '0 auto' }}
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowYearPicker(false);
+                }}
+              />
 
-            {/* 弹窗内容 */}
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-3xl"
-              style={{ maxWidth: '414px', margin: '0 auto' }}
-            >
-              {/* 拖动指示器 */}
+              {/* 弹窗内容 */}
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="fixed bottom-0 left-0 right-0 pointer-events-auto bg-white rounded-t-3xl"
+                style={{ maxWidth: '414px', margin: '0 auto' }}
+              >
+                {/* 拖动指示器 */}
               <div className="flex items-center justify-center pt-3 pb-2">
                 <div className="w-10 h-1 bg-[var(--border)] rounded-full" />
               </div>
@@ -355,9 +362,10 @@ export function DatePicker({
                 </button>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
+      , document.body)}
 
       {/* 隐藏的原生input用于表单验证 */}
       <input
