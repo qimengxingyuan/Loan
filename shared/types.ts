@@ -44,6 +44,7 @@ export interface Loan {
   paymentDay: number;
   initialRate: number;
   minimumPayment?: number; // 自由还款模式的最低还款额
+  icon?: string; // 贷款图标 (Base64/SVG)
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +101,7 @@ export interface LoanSummary {
   monthlyPayment: number;
   nextPaymentDate: string | null;
   method: RepaymentMethod;
+  icon?: string;
 }
 
 // 预估查询结果
@@ -135,6 +137,7 @@ export interface CreateLoanRequest {
   paymentDay: number;
   initialRate: number;
   minimumPayment?: number; // 自由还款模式的最低还款额
+  icon?: string;
 }
 
 // 更新贷款请求
@@ -147,6 +150,7 @@ export interface UpdateLoanRequest {
   paymentDay?: number;
   initialRate?: number;
   minimumPayment?: number;
+  icon?: string;
 }
 
 // 创建固定债务请求

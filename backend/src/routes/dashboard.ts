@@ -36,6 +36,7 @@ router.get('/', (req, res) => {
         monthlyPayment: stats.monthlyPayment,
         nextPaymentDate: stats.nextPaymentDate,
         method: loan.method as RepaymentMethod,
+        icon: loan.icon,
       });
     }
 

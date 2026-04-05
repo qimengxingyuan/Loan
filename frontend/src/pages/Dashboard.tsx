@@ -174,9 +174,16 @@ export default function Dashboard() {
                 <Card pressable className="relative overflow-hidden" onClick={() => navigate(`/details?loanId=${loan.id}`)}>
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-[18px] font-semibold text-[var(--text-primary)] tracking-tight">
-                        {loan.name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        {loan.icon ? (
+                          <div className="w-8 h-8 bg-[var(--background)] rounded-lg flex items-center justify-center overflow-hidden border border-[var(--border)] shrink-0">
+                            <img src={loan.icon} alt="Icon" className="w-5 h-5 object-contain" />
+                          </div>
+                        ) : null}
+                        <h3 className="text-[18px] font-semibold text-[var(--text-primary)] tracking-tight">
+                          {loan.name}
+                        </h3>
+                      </div>
                       <span className="inline-block mt-1.5 px-2.5 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] text-[12px] font-medium rounded-md">
                         {getMethodLabel(loan.method)}
                       </span>

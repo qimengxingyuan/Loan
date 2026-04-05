@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, FileText, ChevronRight, Edit2, Plus, Trash2, Zap, TrendingUp } from 'lucide-react';
+import { Wallet, FileText, ChevronRight, Edit2, Plus, Trash2, Zap, TrendingUp, X } from 'lucide-react';
 import { MobileLayout } from '../components/Layout/MobileLayout';
 import { Card } from '../components/UI/Card';
 import { Sheet } from '../components/UI/Sheet';
@@ -38,6 +38,7 @@ export default function LoanManager() {
     paymentDay: string;
     initialRate: string;
     minimumPayment: string;
+    icon: string;
   }>({
     name: '',
     totalAmount: '',
@@ -46,7 +47,8 @@ export default function LoanManager() {
     loanDate: new Date().toISOString().split('T')[0],
     paymentDay: '',
     initialRate: '',
-    minimumPayment: ''
+    minimumPayment: '',
+    icon: ''
   });
 
   // Debt form state
@@ -115,18 +117,35 @@ export default function LoanManager() {
     return type === 'reduce_term' ? '缩短期限' : '减少月供';
   };
 
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // 检查文件大小 (最大 100KB)
+      if (file.size > 100 * 1024) {
+        alert('图标文件不能超过 100KB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLoanForm(prev => ({ ...prev, icon: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleCreateLoan = async (e: React.FormEvent) => {
     e.preventDefault();
     const data = {
-      name: loanForm.name,
-      totalAmount: parseFloat(loanForm.totalAmount),
-      totalMonths: parseInt(loanForm.totalMonths),
-      method: loanForm.method,
-      loanDate: loanForm.loanDate,
-      paymentDay: parseInt(loanForm.paymentDay),
-      initialRate: parseFloat(loanForm.initialRate) / 100,
-      minimumPayment: loanForm.minimumPayment ? parseFloat(loanForm.minimumPayment) : undefined
-    };
+        name: loanForm.name,
+        totalAmount: parseFloat(loanForm.totalAmount),
+        totalMonths: parseInt(loanForm.totalMonths),
+        method: loanForm.method,
+        loanDate: loanForm.loanDate,
+        paymentDay: parseInt(loanForm.paymentDay),
+        initialRate: parseFloat(loanForm.initialRate) / 100,
+        minimumPayment: loanForm.minimumPayment ? parseFloat(loanForm.minimumPayment) : undefined,
+        icon: loanForm.icon || undefined
+      };
 
     try {
       if (editingLoanId) {
@@ -146,7 +165,8 @@ export default function LoanManager() {
         loanDate: new Date().toISOString().split('T')[0],
         paymentDay: '',
         initialRate: '',
-        minimumPayment: ''
+        minimumPayment: '',
+        icon: ''
       });
     } catch (err) {
       // 错误已在 store 中处理
@@ -213,7 +233,8 @@ export default function LoanManager() {
       loanDate: loan.loanDate || new Date().toISOString().split('T')[0],
       paymentDay: loan.paymentDay.toString(),
       initialRate: (loan.initialRate * 100).toString(),
-      minimumPayment: loan.minimumPayment ? loan.minimumPayment.toString() : ''
+      minimumPayment: loan.minimumPayment ? loan.minimumPayment.toString() : '',
+      icon: loan.icon || ''
     });
     setEditingLoanId(loan.id);
     setShowLoanSheet(true);
@@ -252,7 +273,8 @@ export default function LoanManager() {
       loanDate: new Date().toISOString().split('T')[0],
       paymentDay: '',
       initialRate: '',
-      minimumPayment: ''
+      minimumPayment: '',
+      icon: ''
     });
     setShowLoanSheet(true);
   };
@@ -390,9 +412,15 @@ export default function LoanManager() {
                       <Card pressable className="relative">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center">
-                              <Wallet size={24} className="text-[var(--primary)]" />
-                            </div>
+                            {loan.icon ? (
+                              <div className="w-12 h-12 bg-[var(--background)] rounded-xl flex items-center justify-center overflow-hidden border border-[var(--border)]">
+                                <img src={loan.icon} alt="Icon" className="w-8 h-8 object-contain" />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center">
+                                <Wallet size={24} className="text-[var(--primary)]" />
+                              </div>
+                            )}
                             <div>
                               <h3 className="text-body-medium font-semibold text-[var(--text-primary)]">
                                 {loan.name}
@@ -632,6 +660,39 @@ export default function LoanManager() {
       {/* Add Loan Sheet */}
       <Sheet isOpen={showLoanSheet} onClose={() => setShowLoanSheet(false)} title={editingLoanId ? '编辑贷款' : '添加贷款'} height="full">
         <form onSubmit={handleCreateLoan} className="p-4 space-y-4">
+          <div>
+            <label className="block text-caption-medium text-[var(--text-secondary)] mb-2">贷款图标 (可选)</label>
+            <div className="flex items-center gap-4">
+              {loanForm.icon ? (
+                <div className="w-12 h-12 bg-[var(--background)] rounded-xl flex items-center justify-center overflow-hidden border border-[var(--border)] relative group">
+                  <img src={loanForm.icon} alt="Icon" className="w-8 h-8 object-contain" />
+                  <button 
+                    type="button" 
+                    onClick={() => setLoanForm({ ...loanForm, icon: '' })}
+                    className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center"
+                  >
+                    <X size={16} className="text-white" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-12 h-12 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center">
+                  <Wallet size={24} className="text-[var(--primary)]" />
+                </div>
+              )}
+              <div className="flex-1 relative">
+                <input
+                  type="file"
+                  accept=".svg,.png,.jpg,.jpeg"
+                  onChange={handleIconUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <button type="button" className="px-4 py-2 bg-[var(--background)] text-[var(--text-primary)] rounded-xl text-small font-medium border border-[var(--border)] hover:bg-[var(--border)] transition-colors">
+                  上传图标
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-caption-medium text-[var(--text-secondary)] mb-2">贷款名称</label>
             <input

@@ -72,8 +72,8 @@ export class LoanService {
     const now = new Date().toISOString();
 
     const stmt = db.prepare(`
-      INSERT INTO loans (id, name, total_amount, total_months, method, loan_date, payment_day, initial_rate, minimum_payment, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO loans (id, name, total_amount, total_months, method, loan_date, payment_day, initial_rate, minimum_payment, icon, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -86,6 +86,7 @@ export class LoanService {
       request.paymentDay,
       request.initialRate,
       request.minimumPayment || null,
+      request.icon || null,
       now,
       now
     );
@@ -133,6 +134,10 @@ export class LoanService {
     if (request.minimumPayment !== undefined) {
       updates.push('minimum_payment = ?');
       values.push(request.minimumPayment);
+    }
+    if (request.icon !== undefined) {
+      updates.push('icon = ?');
+      values.push(request.icon);
     }
 
     updates.push('updated_at = ?');
@@ -222,6 +227,7 @@ export class LoanService {
       paymentDay: row.payment_day,
       initialRate: row.initial_rate,
       minimumPayment: row.minimum_payment,
+      icon: row.icon,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
