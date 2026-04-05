@@ -611,7 +611,6 @@ export default function LoanManager() {
 
       {/* Add Button - Capsule Style */}
       <motion.button
-        initial={false}
         whileTap={{ scale: 0.95 }}
         onClick={() => {
           if (activeTab === 'loans') openNewLoanSheet();
