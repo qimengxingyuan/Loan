@@ -11,7 +11,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DB_PATH=/app/data/loans.db
+      - DB_PATH=/app/data/loan.db
       - STATIC_PATH=/app/public
     restart: unless-stopped
     healthcheck:
