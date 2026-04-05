@@ -156,9 +156,15 @@ export default function PaymentDetails() {
           className="w-full flex items-center justify-between bg-white rounded-xl p-4 shadow-sm"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--primary)]/10 rounded-full flex items-center justify-center">
-              <Landmark size={20} className="text-[var(--primary)]" />
-            </div>
+            {selectedLoan?.icon ? (
+              <div className="w-10 h-10 bg-[var(--background)] rounded-full flex items-center justify-center overflow-hidden border border-[var(--border)] shrink-0">
+                <img src={selectedLoan.icon} alt="Icon" className="w-6 h-6 object-contain" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 bg-[var(--primary)]/10 rounded-full flex items-center justify-center shrink-0">
+                <Landmark size={20} className="text-[var(--primary)]" />
+              </div>
+            )}
             <div>
               <div className="text-caption text-[var(--text-secondary)]">当前贷款</div>
               <div className="text-body-medium font-semibold text-[var(--text-primary)]">
@@ -395,11 +401,19 @@ export default function PaymentDetails() {
                   : 'bg-[var(--background)] border-2 border-transparent'
               }`}
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                selectedLoanId === loan.id ? 'bg-[var(--accent)]' : 'bg-white shadow-sm'
-              }`}>
-                <Landmark size={24} className={selectedLoanId === loan.id ? 'text-white' : 'text-[var(--text-secondary)]'} />
-              </div>
+              {loan.icon ? (
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border shrink-0 ${
+                  selectedLoanId === loan.id ? 'border-[var(--accent)] bg-white' : 'border-[var(--border)] bg-white shadow-sm'
+                }`}>
+                  <img src={loan.icon} alt="Icon" className="w-8 h-8 object-contain" />
+                </div>
+              ) : (
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
+                  selectedLoanId === loan.id ? 'bg-[var(--accent)]' : 'bg-white shadow-sm'
+                }`}>
+                  <Landmark size={24} className={selectedLoanId === loan.id ? 'text-white' : 'text-[var(--text-secondary)]'} />
+                </div>
+              )}
               <div className="flex-1 text-left">
                 <div className="text-body-medium font-semibold">{loan.name}</div>
                 <div className="text-small text-[var(--text-secondary)] mt-1">
