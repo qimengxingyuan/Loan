@@ -92,12 +92,20 @@ export function MultiProgressRing({
         />
         {/* Segments */}
         {segments.map((segment, index) => {
-          const progress = (segment.value / total) * 100;
-          const strokeLength = (progress / 100) * circumference;
-          const offset = circumference - strokeLength;
-          const rotationOffset = (currentOffset / total) * 360;
+          const progress = (segment.value / total);
+          // Calculate stroke length based on progress
+          const strokeLength = progress * circumference;
+          // Use strokeDasharray to create the segment and empty space
+          // First value is the segment length, second value is the rest of the circle
+          const dashArray = `${strokeLength} ${circumference}`;
           
-          currentOffset += segment.value;
+          // Calculate how much to rotate this segment to start where the previous one ended
+          // The rotation is in degrees, but we apply it via strokeDashoffset
+          // We subtract currentOffset because strokeDashoffset pushes the dash backwards
+          const dashOffset = -currentOffset * circumference;
+          
+          // Update offset for the next segment
+          currentOffset += progress;
 
           if (progress === 0) return null;
 
@@ -110,11 +118,9 @@ export function MultiProgressRing({
               fill="none"
               stroke={segment.color}
               strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              style={{ transformOrigin: 'center', transform: `rotate(${rotationOffset}deg)` }}
-              initial={{ strokeDashoffset: circumference }}
-              animate={{ strokeDashoffset: offset }}
+              strokeLinecap="butt" // Changed from 'round' to 'butt' to prevent overlapping ends
+              initial={{ strokeDasharray: `0 ${circumference}`, strokeDashoffset: dashOffset }}
+              animate={{ strokeDasharray: dashArray, strokeDashoffset: dashOffset }}
               transition={{ duration: 1, ease: 'easeOut', delay: index * 0.2 }}
             />
           );
