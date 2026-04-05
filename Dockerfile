@@ -48,7 +48,7 @@ EXPOSE 3000
 # Environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DB_PATH=/app/data/loan.db
+ENV DB_PATH=/app/data/loans.db
 ENV STATIC_PATH=/app/public
 
 # Health check
