@@ -29,12 +29,18 @@ export function initDatabase(): void {
     const hasFirstPaymentDate = tableInfo.some(col => col.name === 'first_payment_date');
     const hasMinimumPayment = tableInfo.some(col => col.name === 'minimum_payment');
     
-    // 检查 method 列的 CHECK 约束是否需要更新
-    const methodCol = tableInfo.find(col => col.name === 'method');
-    const needsCheckConstraintUpdate = methodCol && !methodCol.dflt_value?.includes('free_repayment');
+    // 获取表的 SQL 定义以检查 CHECK 约束
+    const tableSchema = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='loans'`).get() as { sql: string } | undefined;
+    const needsCheckConstraintUpdate = tableSchema && !tableSchema.sql.includes('free_repayment');
     
-    if (hasFirstPaymentDate || needsCheckConstraintUpdate || !hasMinimumPayment) {
+    if (hasFirstPaymentDate || needsCheckConstraintUpdate || (tableInfo.length > 0 && !hasMinimumPayment)) {
       console.log('Migrating database: updating schema...');
+      
+      // 在迁移前临时关闭外键约束
+      db.pragma('foreign_keys = OFF');
+      
+      const minPaymentSelect = hasMinimumPayment ? 'minimum_payment' : 'NULL';
+
       // SQLite 不支持直接修改 CHECK 约束，需要创建新表并复制数据
       db.exec(`
         BEGIN TRANSACTION;
@@ -52,15 +58,24 @@ export function initDatabase(): void {
           updated_at TEXT NOT NULL
         );
         INSERT INTO loans_new (id, name, total_amount, total_months, method, loan_date, payment_day, initial_rate, minimum_payment, created_at, updated_at)
-        SELECT id, name, total_amount, total_months, method, COALESCE(loan_date, ''), payment_day, initial_rate, NULL, created_at, updated_at FROM loans;
+        SELECT id, name, total_amount, total_months, method, COALESCE(loan_date, ''), payment_day, initial_rate, ${minPaymentSelect}, created_at, updated_at FROM loans;
         DROP TABLE loans;
         ALTER TABLE loans_new RENAME TO loans;
         COMMIT;
       `);
       console.log('Database migration completed');
+      
+      // 恢复外键约束
+      db.pragma('foreign_keys = ON');
     }
   } catch (e) {
-    console.log('Migration check skipped:', e);
+    console.log('Migration check skipped or failed:', e);
+    // 确保如果发生错误，不要让数据库处于挂起的事务中
+    if (db.inTransaction) {
+      db.exec('ROLLBACK;');
+    }
+    // 确保外键约束被恢复
+    db.pragma('foreign_keys = ON');
   }
 
   // 贷款表
