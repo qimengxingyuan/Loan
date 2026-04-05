@@ -373,16 +373,9 @@ export default function LoanManager() {
                 <div className="text-title-3 font-semibold text-[var(--text-secondary)] mb-2">
                   暂无贷款
                 </div>
-                <div className="text-caption text-[var(--text-tertiary)] mb-6">
+                <div className="text-caption text-[var(--text-tertiary)]">
                   点击下方按钮添加您的第一笔贷款
                 </div>
-                <button
-                  onClick={openNewLoanSheet}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--accent)] text-white rounded-full text-body-medium font-medium"
-                >
-                  <Plus size={20} />
-                  添加贷款
-                </button>
               </Card>
             ) : (
               <div className="space-y-3">
@@ -473,16 +466,9 @@ export default function LoanManager() {
                 <div className="text-title-3 font-semibold text-[var(--text-secondary)] mb-2">
                   暂无提前还款记录
                 </div>
-                <div className="text-caption text-[var(--text-tertiary)] mb-6">
+                <div className="text-caption text-[var(--text-tertiary)]">
                   点击下方按钮添加提前还款记录
                 </div>
-                <button
-                  onClick={openNewPrepaymentSheet}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--accent)] text-white rounded-full text-body-medium font-medium"
-                >
-                  <Plus size={20} />
-                  添加提前还款
-                </button>
               </Card>
             ) : (
               <div className="space-y-3">
@@ -564,16 +550,9 @@ export default function LoanManager() {
                 <div className="text-title-3 font-semibold text-[var(--text-secondary)] mb-2">
                   暂无固定债务
                 </div>
-                <div className="text-caption text-[var(--text-tertiary)] mb-6">
+                <div className="text-caption text-[var(--text-tertiary)]">
                   点击下方按钮添加固定债务
                 </div>
-                <button
-                  onClick={openNewDebtSheet}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--success)] text-white rounded-full text-body-medium font-medium"
-                >
-                  <Plus size={20} />
-                  添加债务
-                </button>
               </Card>
             ) : (
               <div className="space-y-3">
@@ -632,20 +611,23 @@ export default function LoanManager() {
 
       {/* Add Button - Capsule Style */}
       <motion.button
+        initial={false}
         whileTap={{ scale: 0.95 }}
         onClick={() => {
           if (activeTab === 'loans') openNewLoanSheet();
           else if (activeTab === 'prepayments') openNewPrepaymentSheet();
           else openNewDebtSheet();
         }}
-        className="fixed left-1/2 -translate-x-1/2 z-40 px-6 py-3 rounded-full gradient-accent flex items-center gap-2 shadow-lg"
-        style={{ bottom: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))' }}
+        className="fixed left-1/2 -translate-x-1/2 z-[60] bottom-28 px-6 py-3 rounded-full gradient-accent flex items-center gap-2 shadow-lg"
       >
         <Plus size={20} className="text-white" />
         <span className="text-white text-body-medium font-medium">
           {activeTab === 'loans' ? '添加贷款' : activeTab === 'prepayments' ? '添加提前还款' : '添加债务'}
         </span>
       </motion.button>
+
+      {/* Spacer to avoid layout jump when navigating into this page */}
+      <div className="h-28" aria-hidden="true" />
 
       {/* Add Loan Sheet */}
       <Sheet isOpen={showLoanSheet} onClose={() => setShowLoanSheet(false)} title={editingLoanId ? '编辑贷款' : '添加贷款'} height="full">

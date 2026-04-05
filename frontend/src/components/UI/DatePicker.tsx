@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface DatePickerProps {
   value: string;
@@ -26,7 +27,12 @@ export function DatePicker({
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 当value变化时，更新viewDate
   useEffect(() => {
@@ -128,7 +134,7 @@ export function DatePicker({
     if (!isDateSelectable(year, month, day)) return;
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     onChange(dateStr);
-    setIsOpen(false);
+    // 不直接关闭，等待用户点击"确定"
   };
 
   // 选择年份
@@ -189,32 +195,33 @@ export function DatePicker({
       </button>
 
       {/* 日期选择弹窗 */}
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* 遮罩层 */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-50"
-              style={{ maxWidth: '414px', margin: '0 auto' }}
-              onClick={() => {
-                setIsOpen(false);
-                setShowYearPicker(false);
-              }}
-            />
+      {mounted && createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <div className="fixed inset-0 z-[100] pointer-events-none">
+              {/* 遮罩层 */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 pointer-events-auto"
+                style={{ maxWidth: '414px', margin: '0 auto' }}
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowYearPicker(false);
+                }}
+              />
 
-            {/* 弹窗内容 */}
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl"
-              style={{ maxWidth: '414px', margin: '0 auto' }}
-            >
-              {/* 拖动指示器 */}
+              {/* 弹窗内容 */}
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="fixed bottom-0 left-0 right-0 pointer-events-auto bg-white rounded-t-3xl"
+                style={{ maxWidth: '414px', margin: '0 auto' }}
+              >
+                {/* 拖动指示器 */}
               <div className="flex items-center justify-center pt-3 pb-2">
                 <div className="w-10 h-1 bg-[var(--border)] rounded-full" />
               </div>
@@ -222,6 +229,7 @@ export function DatePicker({
               {/* 头部 */}
               <div className="px-4 pb-3 border-b border-[var(--border)] flex items-center justify-between">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsOpen(false);
                     setShowYearPicker(false);
@@ -234,6 +242,7 @@ export function DatePicker({
                   选择日期
                 </h2>
                 <button
+                  type="button"
                   onClick={goToToday}
                   className="text-caption-medium text-[var(--accent)] px-2 py-1"
                 >
@@ -244,18 +253,21 @@ export function DatePicker({
               {/* 月份导航 */}
               <div className="flex items-center justify-between px-4 py-3">
                 <button
+                  type="button"
                   onClick={goToPrevMonth}
                   className="p-2 rounded-xl bg-[var(--background)] text-[var(--text-secondary)] active:scale-95 transition-transform"
                 >
                   <ChevronLeft size={20} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowYearPicker(!showYearPicker)}
                   className="text-title-3 font-semibold text-[var(--text-primary)] px-4 py-2 rounded-xl hover:bg-[var(--background)] transition-colors"
                 >
                   {viewDate.getFullYear()}年 {monthNames[viewDate.getMonth()]}
                 </button>
                 <button
+                  type="button"
                   onClick={goToNextMonth}
                   className="p-2 rounded-xl bg-[var(--background)] text-[var(--text-secondary)] active:scale-95 transition-transform"
                 >
@@ -278,6 +290,7 @@ export function DatePicker({
                         {years.map((year) => (
                           <button
                             key={year}
+                            type="button"
                             onClick={() => handleSelectYear(year)}
                             className={`
                               py-2 px-1 rounded-lg text-caption-medium transition-all
@@ -317,6 +330,7 @@ export function DatePicker({
                   return (
                     <button
                       key={index}
+                      type="button"
                       onClick={() => handleSelectDate(dayInfo.year, dayInfo.month, dayInfo.day)}
                       disabled={!isSelectable}
                       className={`
@@ -337,6 +351,7 @@ export function DatePicker({
               {/* 底部按钮 */}
               <div className="p-4 pb-8 border-t border-[var(--border)]">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsOpen(false);
                     setShowYearPicker(false);
@@ -347,9 +362,10 @@ export function DatePicker({
                 </button>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
+      , document.body)}
 
       {/* 隐藏的原生input用于表单验证 */}
       <input
@@ -360,7 +376,10 @@ export function DatePicker({
         min={min}
         max={max}
         required={required}
-        className="sr-only"
+        readOnly
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only pointer-events-none"
       />
     </div>
   );

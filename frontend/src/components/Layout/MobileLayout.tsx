@@ -44,7 +44,7 @@ export function MobileLayout({
         }}
       >
         {showHeader && <div className="h-14 safe-top" />}
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
             initial="initial"
