@@ -5,18 +5,28 @@ import type {
 } from '../../../shared/types.ts';
 import { v4 as uuidv4 } from 'uuid';
 
+interface FixedDebtRow {
+  id: string;
+  name: string;
+  amount: number;
+  description: string | null;
+  debt_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export class FixedDebtService {
   // 获取所有固定债务
   static getAllFixedDebts(): FixedDebt[] {
     const stmt = db.prepare('SELECT * FROM fixed_debts ORDER BY created_at DESC');
-    const rows = stmt.all() as any[];
+    const rows = stmt.all() as FixedDebtRow[];
     return rows.map(row => this.mapRowToFixedDebt(row));
   }
 
   // 获取单个固定债务
   static getFixedDebtById(id: string): FixedDebt | null {
     const stmt = db.prepare('SELECT * FROM fixed_debts WHERE id = ?');
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id) as FixedDebtRow | undefined;
     return row ? this.mapRowToFixedDebt(row) : null;
   }
 
@@ -50,7 +60,7 @@ export class FixedDebtService {
 
     const now = new Date().toISOString();
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     if (request.name !== undefined) {
       updates.push('name = ?');
@@ -89,17 +99,17 @@ export class FixedDebtService {
   // 获取固定债务总额
   static getTotalFixedDebt(): number {
     const stmt = db.prepare('SELECT SUM(amount) as total FROM fixed_debts');
-    const row = stmt.get() as any;
+    const row = stmt.get() as { total: number | null };
     return row.total || 0;
   }
 
   // 映射数据库行到 FixedDebt 对象
-  private static mapRowToFixedDebt(row: any): FixedDebt {
+  private static mapRowToFixedDebt(row: FixedDebtRow): FixedDebt {
     return {
       id: row.id,
       name: row.name,
       amount: row.amount,
-      description: row.description,
+      description: row.description ?? undefined,
       debtDate: row.debt_date,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

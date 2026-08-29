@@ -6,17 +6,14 @@ const router = Router();
 // 获取大盘数据
 router.get('/', (req, res) => {
     try {
-        const loans = LoanService.getAllLoans();
+        const loans = LoanService.getAllLoansWithRelations();
         const fixedDebts = FixedDebtService.getAllFixedDebts();
         let totalRemainingPrincipal = 0;
         let totalPaidPrincipal = 0;
         let totalPaidInterest = 0;
         const loanSummaries = [];
         for (const loan of loans) {
-            const loanWithRelations = LoanService.getLoanById(loan.id);
-            if (!loanWithRelations)
-                continue;
-            const schedule = CalculatorService.generateSchedule(loanWithRelations);
+            const schedule = CalculatorService.generateSchedule(loan);
             const stats = CalculatorService.calculateLoanStats(loan, schedule);
             totalRemainingPrincipal += stats.remainingPrincipal;
             totalPaidPrincipal += stats.paidPrincipal;
@@ -29,6 +26,7 @@ router.get('/', (req, res) => {
                 monthlyPayment: stats.monthlyPayment,
                 nextPaymentDate: stats.nextPaymentDate,
                 method: loan.method,
+                icon: loan.icon,
             });
         }
         const totalFixedDebt = fixedDebts.reduce((sum, debt) => sum + debt.amount, 0);

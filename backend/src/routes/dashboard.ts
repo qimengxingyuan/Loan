@@ -9,7 +9,7 @@ const router = Router();
 // 获取大盘数据
 router.get('/', (req, res) => {
   try {
-    const loans = LoanService.getAllLoans();
+    const loans = LoanService.getAllLoansWithRelations();
     const fixedDebts = FixedDebtService.getAllFixedDebts();
     
     let totalRemainingPrincipal = 0;
@@ -18,10 +18,7 @@ router.get('/', (req, res) => {
     const loanSummaries: LoanSummary[] = [];
 
     for (const loan of loans) {
-      const loanWithRelations = LoanService.getLoanById(loan.id);
-      if (!loanWithRelations) continue;
-
-      const schedule = CalculatorService.generateSchedule(loanWithRelations);
+      const schedule = CalculatorService.generateSchedule(loan);
       const stats = CalculatorService.calculateLoanStats(loan, schedule);
 
       totalRemainingPrincipal += stats.remainingPrincipal;

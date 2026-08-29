@@ -1,0 +1,9 @@
+node_modules
+*.log
+.DS_Store
+*.local
+
+shared/*.js
+shared/*.js.map
+shared/*.d.ts
+shared/*.d.ts.map

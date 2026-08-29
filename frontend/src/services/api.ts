@@ -13,6 +13,7 @@ import type {
   AddPrepaymentRequest,
   RateChange,
   Prepayment,
+  PrepaymentWithLoan,
   ApiResponse,
 } from '../types';
 
@@ -32,9 +33,11 @@ export const loanApi = {
   update: (id: string, data: UpdateLoanRequest) => api.put<ApiResponse<Loan>>(`/loans/${id}`, data).then(res => res.data),
   delete: (id: string) => api.delete<ApiResponse<null>>(`/loans/${id}`).then(res => res.data),
   getSchedule: (id: string) => api.get<ApiResponse<PaymentScheduleItem[]>>(`/loans/${id}/schedule`).then(res => res.data),
+  getAllPrepayments: () => api.get<ApiResponse<PrepaymentWithLoan[]>>('/loans/prepayments').then(res => res.data),
   addRateChange: (id: string, data: AddRateChangeRequest) => api.post<ApiResponse<RateChange>>(`/loans/${id}/rate-changes`, data).then(res => res.data),
   deleteRateChange: (loanId: string, rateChangeId: string) => api.delete<ApiResponse<null>>(`/loans/${loanId}/rate-changes/${rateChangeId}`).then(res => res.data),
   addPrepayment: (id: string, data: AddPrepaymentRequest) => api.post<ApiResponse<Prepayment>>(`/loans/${id}/prepayments`, data).then(res => res.data),
+  updatePrepayment: (loanId: string, prepaymentId: string, data: AddPrepaymentRequest) => api.put<ApiResponse<Prepayment>>(`/loans/${loanId}/prepayments/${prepaymentId}`, data).then(res => res.data),
   deletePrepayment: (loanId: string, prepaymentId: string) => api.delete<ApiResponse<null>>(`/loans/${loanId}/prepayments/${prepaymentId}`).then(res => res.data),
 };
 

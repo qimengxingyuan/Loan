@@ -7,9 +7,9 @@ interface FixedDebtState {
   loading: boolean;
   error: string | null;
   fetchFixedDebts: () => Promise<void>;
-  createFixedDebt: (data: Parameters<typeof fixedDebtApi.create>[0]) => Promise<void>;
-  updateFixedDebt: (id: string, data: Parameters<typeof fixedDebtApi.update>[1]) => Promise<void>;
-  deleteFixedDebt: (id: string) => Promise<void>;
+  createFixedDebt: (data: Parameters<typeof fixedDebtApi.create>[0]) => Promise<boolean>;
+  updateFixedDebt: (id: string, data: Parameters<typeof fixedDebtApi.update>[1]) => Promise<boolean>;
+  deleteFixedDebt: (id: string) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -40,11 +40,14 @@ export const useFixedDebtStore = create<FixedDebtState>((set, get) => ({
       const response = await fixedDebtApi.create(data);
       if (response.success && response.data) {
         await get().fetchFixedDebts();
+        return true;
       } else {
         set({ error: response.error || 'Failed to create fixed debt' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -56,11 +59,14 @@ export const useFixedDebtStore = create<FixedDebtState>((set, get) => ({
       const response = await fixedDebtApi.update(id, data);
       if (response.success && response.data) {
         await get().fetchFixedDebts();
+        return true;
       } else {
         set({ error: response.error || 'Failed to update fixed debt' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -72,11 +78,14 @@ export const useFixedDebtStore = create<FixedDebtState>((set, get) => ({
       const response = await fixedDebtApi.delete(id);
       if (response.success) {
         await get().fetchFixedDebts();
+        return true;
       } else {
         set({ error: response.error || 'Failed to delete fixed debt' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }

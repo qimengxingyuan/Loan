@@ -3,10 +3,9 @@ import type {
   LoanWithRelations,
   PaymentScheduleItem,
   RateChange,
-  Prepayment,
   PrepaymentType,
 } from '../../../shared/types.ts';
-import * as Shared from '../../../shared/types.js';
+import { formatLocalDate, parseLocalDate } from '../utils/date.js';
 
 export class CalculatorService {
   // 生成还款计划
@@ -18,17 +17,17 @@ export class CalculatorService {
     
     // 排序利率变更和提前还款
     const rateChanges = [...loan.rateChanges].sort((a, b) => 
-      new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime()
+      parseLocalDate(a.effectiveDate).getTime() - parseLocalDate(b.effectiveDate).getTime()
     );
     const prepayments = [...loan.prepayments].sort((a, b) => 
-      new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime()
+      parseLocalDate(a.paymentDate).getTime() - parseLocalDate(b.paymentDate).getTime()
     );
     
     let rateChangeIndex = 0;
     let prepaymentIndex = 0;
     
     // 计算首次还款日期
-    const loanDateObj = new Date(loan.loanDate);
+    const loanDateObj = parseLocalDate(loan.loanDate);
     let firstPaymentDate = new Date(loanDateObj);
     firstPaymentDate.setDate(loan.paymentDay);
     
@@ -43,8 +42,6 @@ export class CalculatorService {
     
     // 记录原始总期数
     const originalTotalMonths = loan.totalMonths;
-    // 记录是否已经处理过提前还款（用于缩短期限时保持月供不变）
-    let hasPrepayment = false;
     let lastMonthlyPayment = 0;
     // 记录是否处于缩短期限模式（一旦设置，后续月份保持月供不变）
     let isReduceTermMode = false;
@@ -52,9 +49,8 @@ export class CalculatorService {
     let isReducePaymentMode = false;
     // 记录等额本金的固定月供本金
     const equalPrincipalMonthlyPrincipal = loan.totalAmount / loan.totalMonths;
-    // 记录等本等息的固定月供本金和利息
+    // 记录等本等息的固定月供本金
     const equalPrincipalInterestMonthlyPrincipal = loan.totalAmount / loan.totalMonths;
-    const equalPrincipalInterestMonthlyInterest = loan.totalAmount * (loan.initialRate / 12);
     // 记录自由还款的最低还款额
     const freeRepaymentMinimumPayment = loan.method === 'free_repayment' 
       ? (loan.minimumPayment || this.calculateEqualInstallmentPayment(loan.totalAmount, loan.initialRate / 12, loan.totalMonths * 2))
@@ -66,7 +62,7 @@ export class CalculatorService {
     loanEndDate.setMonth(loanEndDate.getMonth() + loan.totalMonths);
     
     while (remainingPrincipal > 0.01 && currentPeriod <= originalTotalMonths * 2) {
-      const dateStr = currentPaymentDate.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(currentPaymentDate);
       
       // 检查利率变更 - 获取当前适用的利率
       while (rateChangeIndex < rateChanges.length && 
@@ -99,7 +95,7 @@ export class CalculatorService {
       // 如果有提前还款且提前还款日不等于正常还款日，需要单独处理
       if (prepaymentAmount > 0 && prepaymentDate && prepaymentDate !== dateStr) {
         // 银行算法：提前还款当天扣款 = 提前还款本金 + 该本金从上一还款日到提前还款日的利息
-        const prepaymentDateObj = new Date(prepaymentDate);
+        const prepaymentDateObj = parseLocalDate(prepaymentDate);
         const daysSinceLastPayment = Math.max(0, Math.round(
           (prepaymentDateObj.getTime() - lastInterestDate.getTime()) / (1000 * 60 * 60 * 24)
         ));
@@ -121,7 +117,7 @@ export class CalculatorService {
         
         // 添加提前还款记录（提前还款不占用期数编号，使用递减的负数确保唯一性）
         prepaymentPeriodCounter--;
-        const today = new Date().toISOString().split('T')[0];
+        const today = formatLocalDate();
         schedule.push({
           period: prepaymentPeriodCounter, // 提前还款使用负数，不占用正常期数
           paymentDate: prepaymentDate,
@@ -137,7 +133,6 @@ export class CalculatorService {
         
         // 扣除提前还款本金
         remainingPrincipal -= prepaymentAmount;
-        hasPrepayment = true;
         
         // 设置提前还款模式标志
         if (prepaymentType === 'reduce_term') {
@@ -228,11 +223,9 @@ export class CalculatorService {
             monthlyPayment = principal + interest;
           } else if (loan.method === 'equal_principal_interest') {
             // 等本等息
-            const remainingMonths = originalTotalMonths - currentPeriod + 1;
-            
             // 等本等息：每月本金和利息都固定（基于原始贷款金额）
             principal = equalPrincipalInterestMonthlyPrincipal;
-            interest = equalPrincipalInterestMonthlyInterest;
+            interest = loan.totalAmount * monthlyRate;
             
             // 最后一期可能需要调整
             if (principal > remainingPrincipal) {
@@ -266,7 +259,7 @@ export class CalculatorService {
           
           remainingPrincipal -= principal;
           
-          const today = new Date().toISOString().split('T')[0];
+          const today = formatLocalDate();
           schedule.push({
             period: currentPeriod,
             paymentDate: dateStr,
@@ -286,7 +279,11 @@ export class CalculatorService {
         
         if (prepaymentAmount > 0) {
           remainingPrincipal -= prepaymentAmount;
-          hasPrepayment = true;
+          if (prepaymentType === 'reduce_term') {
+            isReduceTermMode = true;
+          } else if (prepaymentType === 'reduce_payment') {
+            isReducePaymentMode = true;
+          }
         }
         
         if (loan.method === 'equal_installment') {
@@ -376,7 +373,7 @@ export class CalculatorService {
           } else {
             // 等本等息：每月本金和利息都固定（基于原始贷款金额）
             principal = Math.min(equalPrincipalInterestMonthlyPrincipal, remainingPrincipal);
-            interest = equalPrincipalInterestMonthlyInterest;
+            interest = loan.totalAmount * monthlyRate;
             
             monthlyPayment = principal + interest;
           }
@@ -407,7 +404,7 @@ export class CalculatorService {
         
         remainingPrincipal -= principal;
         
-        const today = new Date().toISOString().split('T')[0];
+        const today = formatLocalDate();
         const scheduleItem: PaymentScheduleItem = {
           period: currentPeriod,
           paymentDate: dateStr,
@@ -486,14 +483,14 @@ export class CalculatorService {
     const ratePeriods: { startDate: Date; endDate: Date; rate: number }[] = [];
     
     // 找到贷款开始日期（用于构建完整的利率区间）
-    const loanStartDate = new Date(Math.min(start.getTime(), rateChanges.length > 0 ? new Date(rateChanges[0].effectiveDate).getTime() : start.getTime()));
+    const loanStartDate = new Date(Math.min(start.getTime(), rateChanges.length > 0 ? parseLocalDate(rateChanges[0].effectiveDate).getTime() : start.getTime()));
     
     // 添加初始利率区间（从贷款开始到第一个利率变更）
     if (rateChanges.length > 0) {
       const firstChange = rateChanges[0];
       ratePeriods.push({
         startDate: new Date(loanStartDate),
-        endDate: new Date(firstChange.effectiveDate),
+        endDate: parseLocalDate(firstChange.effectiveDate),
         rate: initialRate
       });
       
@@ -503,8 +500,8 @@ export class CalculatorService {
         const nextChange = rateChanges[i + 1];
         
         ratePeriods.push({
-          startDate: new Date(currentChange.effectiveDate),
-          endDate: nextChange ? new Date(nextChange.effectiveDate) : loanEndDate,
+          startDate: parseLocalDate(currentChange.effectiveDate),
+          endDate: nextChange ? parseLocalDate(nextChange.effectiveDate) : loanEndDate,
           rate: currentChange.annualRate
         });
       }
@@ -561,14 +558,14 @@ export class CalculatorService {
     const ratePeriods: { startDate: Date; endDate: Date; rate: number }[] = [];
     
     // 找到贷款开始日期（用于构建完整的利率区间）
-    const loanStartDate = new Date(Math.min(start.getTime(), rateChanges.length > 0 ? new Date(rateChanges[0].effectiveDate).getTime() : start.getTime()));
+    const loanStartDate = new Date(Math.min(start.getTime(), rateChanges.length > 0 ? parseLocalDate(rateChanges[0].effectiveDate).getTime() : start.getTime()));
     
     // 添加初始利率区间（从贷款开始到第一个利率变更）
     if (rateChanges.length > 0) {
       const firstChange = rateChanges[0];
       ratePeriods.push({
         startDate: new Date(loanStartDate),
-        endDate: new Date(firstChange.effectiveDate),
+        endDate: parseLocalDate(firstChange.effectiveDate),
         rate: initialRate
       });
       
@@ -578,8 +575,8 @@ export class CalculatorService {
         const nextChange = rateChanges[i + 1];
         
         ratePeriods.push({
-          startDate: new Date(currentChange.effectiveDate),
-          endDate: nextChange ? new Date(nextChange.effectiveDate) : loanEndDate,
+          startDate: parseLocalDate(currentChange.effectiveDate),
+          endDate: nextChange ? parseLocalDate(nextChange.effectiveDate) : loanEndDate,
           rate: currentChange.annualRate
         });
       }
@@ -611,7 +608,7 @@ export class CalculatorService {
           // 天数 = intersectEnd - intersectStart（不包括起始日）
           // 如果intersectEnd是利率变更日，则不包括这一天（留给新利率）
           const isRateChangeDate = rateChanges.some(rc => {
-            const rcDate = new Date(rc.effectiveDate);
+            const rcDate = parseLocalDate(rc.effectiveDate);
             return rcDate.getFullYear() === intersectEnd.getFullYear() &&
                    rcDate.getMonth() === intersectEnd.getMonth() &&
                    rcDate.getDate() === intersectEnd.getDate();
@@ -655,12 +652,24 @@ export class CalculatorService {
     schedule: PaymentScheduleItem[],
     targetDate: string
   ): number {
-    for (const item of schedule) {
-      if (item.paymentDate > targetDate) {
-        return item.remainingPrincipal + item.principal;
-      }
+    const timeline = [...schedule].sort((a, b) => {
+      const dateCompare = a.paymentDate.localeCompare(b.paymentDate);
+      if (dateCompare !== 0) return dateCompare;
+      return a.period - b.period;
+    });
+
+    let lastAppliedItem: PaymentScheduleItem | null = null;
+    for (const item of timeline) {
+      if (item.paymentDate > targetDate) break;
+      lastAppliedItem = item;
     }
-    return 0;
+
+    if (lastAppliedItem) {
+      return Math.max(0, lastAppliedItem.remainingPrincipal);
+    }
+
+    const firstItem = timeline[0];
+    return firstItem ? Math.max(0, firstItem.remainingPrincipal + firstItem.principal) : 0;
   }
   
   // 计算贷款统计信息
@@ -676,7 +685,7 @@ export class CalculatorService {
     monthlyPayment: number;
     totalPrepayment: number;
   } {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatLocalDate();
     
     let paidPrincipal = 0;
     let paidInterest = 0;

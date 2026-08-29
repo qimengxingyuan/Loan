@@ -1,19 +1,15 @@
 import { create } from 'zustand';
-import type { Prepayment, Loan } from '../types';
+import type { Loan, PrepaymentWithLoan } from '../types';
 import { loanApi } from '../services/api';
-
-interface PrepaymentWithLoan extends Prepayment {
-  loanName: string;
-}
 
 interface PrepaymentState {
   prepayments: PrepaymentWithLoan[];
   loading: boolean;
   error: string | null;
   fetchPrepayments: (loans: Loan[]) => Promise<void>;
-  createPrepayment: (loanId: string, data: Parameters<typeof loanApi.addPrepayment>[1]) => Promise<void>;
-  updatePrepayment: (loanId: string, prepaymentId: string, data: Parameters<typeof loanApi.addPrepayment>[1]) => Promise<void>;
-  deletePrepayment: (loanId: string, prepaymentId: string) => Promise<void>;
+  createPrepayment: (loanId: string, data: Parameters<typeof loanApi.addPrepayment>[1]) => Promise<boolean>;
+  updatePrepayment: (loanId: string, prepaymentId: string, data: Parameters<typeof loanApi.addPrepayment>[1]) => Promise<boolean>;
+  deletePrepayment: (loanId: string, prepaymentId: string) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -22,27 +18,15 @@ export const usePrepaymentStore = create<PrepaymentState>((set, get) => ({
   loading: false,
   error: null,
 
-  fetchPrepayments: async (loans: Loan[]) => {
+  fetchPrepayments: async (_loans: Loan[]) => {
     set({ loading: true, error: null });
     try {
-      const allPrepayments: PrepaymentWithLoan[] = [];
-      
-      for (const loan of loans) {
-        const response = await loanApi.getById(loan.id);
-        if (response.success && response.data && response.data.prepayments) {
-          for (const prepayment of response.data.prepayments) {
-            allPrepayments.push({
-              ...prepayment,
-              loanName: loan.name,
-            });
-          }
-        }
+      const response = await loanApi.getAllPrepayments();
+      if (response.success && response.data) {
+        set({ prepayments: response.data });
+      } else {
+        set({ error: response.error || 'Failed to fetch prepayments' });
       }
-      
-      // 按还款日期排序
-      allPrepayments.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
-      
-      set({ prepayments: allPrepayments });
     } catch (err) {
       set({ error: 'Network error' });
     } finally {
@@ -60,11 +44,14 @@ export const usePrepaymentStore = create<PrepaymentState>((set, get) => ({
         if (loanResponse.success && loanResponse.data) {
           await get().fetchPrepayments(loanResponse.data);
         }
+        return true;
       } else {
         set({ error: response.error || 'Failed to add prepayment' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -73,25 +60,20 @@ export const usePrepaymentStore = create<PrepaymentState>((set, get) => ({
   updatePrepayment: async (loanId, prepaymentId, data) => {
     set({ loading: true, error: null });
     try {
-      // 先删除旧记录
-      const deleteResponse = await loanApi.deletePrepayment(loanId, prepaymentId);
-      if (!deleteResponse.success) {
-        set({ error: deleteResponse.error || 'Failed to update prepayment' });
-        return;
-      }
-      
-      // 再创建新记录
-      const createResponse = await loanApi.addPrepayment(loanId, data);
-      if (createResponse.success) {
+      const response = await loanApi.updatePrepayment(loanId, prepaymentId, data);
+      if (response.success) {
         const loanResponse = await loanApi.getAll();
         if (loanResponse.success && loanResponse.data) {
           await get().fetchPrepayments(loanResponse.data);
         }
+        return true;
       } else {
-        set({ error: createResponse.error || 'Failed to update prepayment' });
+        set({ error: response.error || 'Failed to update prepayment' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -106,11 +88,14 @@ export const usePrepaymentStore = create<PrepaymentState>((set, get) => ({
         if (loanResponse.success && loanResponse.data) {
           await get().fetchPrepayments(loanResponse.data);
         }
+        return true;
       } else {
         set({ error: response.error || 'Failed to delete prepayment' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }

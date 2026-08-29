@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = process.env.DB_PATH || path.join(__dirname, '../../../../data/loans.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, '../../../../data/loan.db');
 // Ensure database directory exists
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
@@ -15,6 +15,15 @@ export const db = dbInstance;
 // 启用外键约束
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+function hasColumn(tableName, columnName) {
+    const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    return tableInfo.some(col => col.name === columnName);
+}
+function addColumnIfMissing(tableName, columnName, definition) {
+    if (!hasColumn(tableName, columnName)) {
+        db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
+    }
+}
 // 初始化数据库表
 export function initDatabase() {
     // 检查是否需要迁移（删除 first_payment_date 列、更新 CHECK 约束或添加 minimum_payment 列）
@@ -22,11 +31,16 @@ export function initDatabase() {
         const tableInfo = db.prepare(`PRAGMA table_info(loans)`).all();
         const hasFirstPaymentDate = tableInfo.some(col => col.name === 'first_payment_date');
         const hasMinimumPayment = tableInfo.some(col => col.name === 'minimum_payment');
-        // 检查 method 列的 CHECK 约束是否需要更新
-        const methodCol = tableInfo.find(col => col.name === 'method');
-        const needsCheckConstraintUpdate = methodCol && !methodCol.dflt_value?.includes('free_repayment');
-        if (hasFirstPaymentDate || needsCheckConstraintUpdate || !hasMinimumPayment) {
+        const hasIcon = tableInfo.some(col => col.name === 'icon');
+        // 获取表的 SQL 定义以检查 CHECK 约束
+        const tableSchema = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='loans'`).get();
+        const needsCheckConstraintUpdate = tableSchema && !tableSchema.sql.includes('free_repayment');
+        if (hasFirstPaymentDate || needsCheckConstraintUpdate || (tableInfo.length > 0 && !hasMinimumPayment)) {
             console.log('Migrating database: updating schema...');
+            // 在迁移前临时关闭外键约束
+            db.pragma('foreign_keys = OFF');
+            const minPaymentSelect = hasMinimumPayment ? 'minimum_payment' : 'NULL';
+            const iconSelect = hasIcon ? 'icon' : 'NULL';
             // SQLite 不支持直接修改 CHECK 约束，需要创建新表并复制数据
             db.exec(`
         BEGIN TRANSACTION;
@@ -40,20 +54,29 @@ export function initDatabase() {
           payment_day INTEGER NOT NULL CHECK(payment_day BETWEEN 1 AND 31),
           initial_rate REAL NOT NULL,
           minimum_payment REAL,
+          icon TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         );
-        INSERT INTO loans_new (id, name, total_amount, total_months, method, loan_date, payment_day, initial_rate, minimum_payment, created_at, updated_at)
-        SELECT id, name, total_amount, total_months, method, COALESCE(loan_date, ''), payment_day, initial_rate, NULL, created_at, updated_at FROM loans;
+        INSERT INTO loans_new (id, name, total_amount, total_months, method, loan_date, payment_day, initial_rate, minimum_payment, icon, created_at, updated_at)
+        SELECT id, name, total_amount, total_months, method, COALESCE(loan_date, ''), payment_day, initial_rate, ${minPaymentSelect}, ${iconSelect}, created_at, updated_at FROM loans;
         DROP TABLE loans;
         ALTER TABLE loans_new RENAME TO loans;
         COMMIT;
       `);
             console.log('Database migration completed');
+            // 恢复外键约束
+            db.pragma('foreign_keys = ON');
         }
     }
     catch (e) {
-        console.log('Migration check skipped:', e);
+        console.log('Migration check skipped or failed:', e);
+        // 确保如果发生错误，不要让数据库处于挂起的事务中
+        if (db.inTransaction) {
+            db.exec('ROLLBACK;');
+        }
+        // 确保外键约束被恢复
+        db.pragma('foreign_keys = ON');
     }
     // 贷款表
     db.exec(`
@@ -67,24 +90,14 @@ export function initDatabase() {
       payment_day INTEGER NOT NULL CHECK(payment_day BETWEEN 1 AND 31),
       initial_rate REAL NOT NULL,
       minimum_payment REAL,
+      icon TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
   `);
-    // 尝试添加 loan_date 列（如果表已存在且没有该列）
-    try {
-        db.exec(`ALTER TABLE loans ADD COLUMN loan_date TEXT NOT NULL DEFAULT ''`);
-    }
-    catch (e) {
-        // 忽略列已存在的错误
-    }
-    // 尝试添加 minimum_payment 列（如果表已存在且没有该列）
-    try {
-        db.exec(`ALTER TABLE loans ADD COLUMN minimum_payment REAL`);
-    }
-    catch (e) {
-        // 忽略列已存在的错误
-    }
+    addColumnIfMissing('loans', 'loan_date', `loan_date TEXT NOT NULL DEFAULT ''`);
+    addColumnIfMissing('loans', 'minimum_payment', 'minimum_payment REAL');
+    addColumnIfMissing('loans', 'icon', 'icon TEXT');
     // 利率变更表
     db.exec(`
     CREATE TABLE IF NOT EXISTS rate_changes (
@@ -97,13 +110,7 @@ export function initDatabase() {
       FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
     )
   `);
-    // 尝试添加 end_date 列（如果表已存在且没有该列）
-    try {
-        db.exec(`ALTER TABLE rate_changes ADD COLUMN end_date TEXT`);
-    }
-    catch (e) {
-        // 忽略列已存在的错误
-    }
+    addColumnIfMissing('rate_changes', 'end_date', 'end_date TEXT');
     // 提前还款表
     db.exec(`
     CREATE TABLE IF NOT EXISTS prepayments (

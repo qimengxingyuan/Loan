@@ -73,7 +73,7 @@ export class FixedDebtService {
             id: row.id,
             name: row.name,
             amount: row.amount,
-            description: row.description,
+            description: row.description ?? undefined,
             debtDate: row.debt_date,
             createdAt: row.created_at,
             updatedAt: row.updated_at,

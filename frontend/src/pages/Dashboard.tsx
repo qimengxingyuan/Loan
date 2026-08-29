@@ -8,42 +8,15 @@ import { MultiProgressRing, ProgressBar } from '../components/UI/ProgressRing';
 
 
 import { useDashboardStore } from '../stores/dashboardStore';
-import { useLoanStore } from '../stores/loanStore';
-import { useFixedDebtStore } from '../stores/fixedDebtStore';
+import { formatCompactCurrency, getMethodLabel } from '../utils/format';
 
 export default function Dashboard() {
   const { dashboardData: data, fetchDashboardData: fetchDashboard } = useDashboardStore();
-  const { fetchLoans } = useLoanStore();
-  const { fetchFixedDebts } = useFixedDebtStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboard();
-    fetchLoans();
-    fetchFixedDebts();
-  }, [fetchDashboard, fetchLoans, fetchFixedDebts]);
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000) {
-      return (amount / 10000).toFixed(1) + '万';
-    }
-    return amount.toFixed(0);
-  };
-
-  const getMethodLabel = (method: string) => {
-    switch (method) {
-      case 'equal_installment':
-        return '等额本息';
-      case 'equal_principal':
-        return '等额本金';
-      case 'equal_principal_interest':
-        return '等本等息';
-      case 'free_repayment':
-        return '自由还款';
-      default:
-        return '等额本息';
-    }
-  };
+  }, [fetchDashboard]);
 
   return (
     <MobileLayout title="贷款管家" showHeader={false}>
@@ -52,35 +25,35 @@ export default function Dashboard() {
       
       {/* Stats Carousel */}
       <div className="mb-10">
-        <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-6 -mx-4 px-4 snap-x snap-mandatory">
-          <div className="snap-center shrink-0 w-[85%]">
+        <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-6 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 md:pb-0">
+          <div className="snap-center shrink-0 w-[85%] md:w-auto">
             <StatCard
               label="总负债"
-              value={formatCurrency(data?.totalDebt || 0)}
+              value={formatCompactCurrency(data?.totalDebt || 0)}
               unit="元"
               color="primary"
             />
           </div>
-          <div className="snap-center shrink-0 w-[85%]">
+          <div className="snap-center shrink-0 w-[85%] md:w-auto">
             <StatCard
               label="剩余本金"
-              value={formatCurrency(data?.totalRemainingPrincipal || 0)}
+              value={formatCompactCurrency(data?.totalRemainingPrincipal || 0)}
               unit="元"
               color="accent"
             />
           </div>
-          <div className="snap-center shrink-0 w-[85%]">
+          <div className="snap-center shrink-0 w-[85%] md:w-auto">
             <StatCard
               label="已还本金"
-              value={formatCurrency(data?.totalPaidPrincipal || 0)}
+              value={formatCompactCurrency(data?.totalPaidPrincipal || 0)}
               unit="元"
               color="success"
             />
           </div>
-          <div className="snap-center shrink-0 w-[85%]">
+          <div className="snap-center shrink-0 w-[85%] md:w-auto">
             <StatCard
               label="已还利息"
-              value={formatCurrency(data?.totalPaidInterest || 0)}
+              value={formatCompactCurrency(data?.totalPaidInterest || 0)}
               unit="元"
               color="warning"
             />
@@ -117,7 +90,7 @@ export default function Dashboard() {
                   <span className="text-[var(--text-secondary)]">已还本金</span>
                 </div>
                 <div className="font-mono font-semibold text-[var(--text-primary)]">
-                  ¥{formatCurrency(data?.totalPaidPrincipal || 0)}
+                  ¥{formatCompactCurrency(data?.totalPaidPrincipal || 0)}
                 </div>
               </div>
               <div className="flex justify-between items-center text-small">
@@ -126,7 +99,7 @@ export default function Dashboard() {
                   <span className="text-[var(--text-secondary)]">已还利息</span>
                 </div>
                 <div className="font-mono font-semibold text-[var(--text-primary)]">
-                  ¥{formatCurrency(data?.totalPaidInterest || 0)}
+                  ¥{formatCompactCurrency(data?.totalPaidInterest || 0)}
                 </div>
               </div>
               <div className="flex justify-between items-center text-small pt-1 border-t border-[var(--border)]">
@@ -135,7 +108,7 @@ export default function Dashboard() {
                   <span className="text-[var(--text-secondary)]">剩余应还本金</span>
                 </div>
                 <div className="font-mono font-semibold text-[var(--primary)]">
-                  ¥{formatCurrency(data?.totalRemainingPrincipal || 0)}
+                  ¥{formatCompactCurrency(data?.totalRemainingPrincipal || 0)}
                 </div>
               </div>
             </div>
@@ -180,7 +153,7 @@ export default function Dashboard() {
                             <img src={loan.icon} alt="Icon" className="w-5 h-5 object-contain" />
                           </div>
                         ) : null}
-                        <h3 className="text-[18px] font-semibold text-[var(--text-primary)] tracking-tight">
+                        <h3 className="text-[18px] font-semibold text-[var(--text-primary)]">
                           {loan.name}
                         </h3>
                       </div>
@@ -201,19 +174,19 @@ export default function Dashboard() {
                     <div>
                       <div className="text-[13px] text-[var(--text-secondary)] mb-1">剩余本金</div>
                       <div className="text-[17px] font-mono font-semibold text-[var(--primary)]">
-                        ¥{formatCurrency(loan.remainingPrincipal || 0)}
+                        ¥{formatCompactCurrency(loan.remainingPrincipal || 0)}
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-[13px] text-[var(--text-secondary)] mb-1">月供</div>
                       <div className="text-[17px] font-mono font-semibold text-[var(--text-primary)]">
-                        ¥{formatCurrency(loan.monthlyPayment || 0)}
+                        ¥{formatCompactCurrency(loan.monthlyPayment || 0)}
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-[13px] text-[var(--text-secondary)] mb-1">下次还款</div>
                       <div className="text-[15px] font-medium text-[var(--accent)] bg-[var(--accent)]/5 px-2 py-0.5 rounded-md inline-block">
-                        {loan.nextPaymentDate ? new Date(loan.nextPaymentDate).getMonth() + 1 + '月' : '-'}
+                        {loan.nextPaymentDate ? `${Number(loan.nextPaymentDate.slice(5, 7))}月` : '-'}
                       </div>
                     </div>
                   </div>
@@ -249,7 +222,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-body-medium font-mono font-semibold text-[var(--warning)]">
-                    ¥{formatCurrency(debt.amount)}
+                    ¥{formatCompactCurrency(debt.amount)}
                   </div>
                 </div>
               </Card>

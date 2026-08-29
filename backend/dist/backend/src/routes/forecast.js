@@ -11,15 +11,12 @@ router.get('/', (req, res) => {
             return res.status(400).json({ success: false, error: 'Date parameter is required' });
         }
         const targetDate = date;
-        const loans = LoanService.getAllLoans();
+        const loans = LoanService.getAllLoansWithRelations();
         const fixedDebts = FixedDebtService.getAllFixedDebts();
         let totalRemainingPrincipal = 0;
         const loanForecasts = [];
         for (const loan of loans) {
-            const loanWithRelations = LoanService.getLoanById(loan.id);
-            if (!loanWithRelations)
-                continue;
-            const schedule = CalculatorService.generateSchedule(loanWithRelations);
+            const schedule = CalculatorService.generateSchedule(loan);
             const remainingPrincipal = CalculatorService.getRemainingPrincipalAtDate(schedule, targetDate);
             // 计算剩余期数和结清日期
             let remainingPeriods = 0;
@@ -35,6 +32,7 @@ router.get('/', (req, res) => {
                 loanId: loan.id,
                 loanName: loan.name,
                 remainingPrincipal: Math.round(remainingPrincipal * 100) / 100,
+                totalPeriods: loan.totalMonths,
                 remainingPeriods,
                 payoffDate,
             });

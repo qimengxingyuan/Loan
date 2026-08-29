@@ -32,17 +32,15 @@ export function MobileLayout({
   rightAction 
 }: MobileLayoutProps) {
   const location = useLocation();
+  const mainClassName = `flex-1 overflow-y-auto hide-scrollbar ${
+    showNav ? 'pb-[calc(80px+env(safe-area-inset-bottom,20px))] md:pb-0 md:pl-24' : ''
+  }`;
 
   return (
     <div className="flex flex-col min-h-screen gradient-mesh">
       {showHeader && <Header title={title} rightAction={rightAction} />}
       
-      <main 
-        className="flex-1 overflow-y-auto hide-scrollbar"
-        style={{ 
-          paddingBottom: showNav ? 'calc(80px + env(safe-area-inset-bottom, 20px))' : '0'
-        }}
-      >
+      <main className={mainClassName}>
         {showHeader && <div className="h-14 safe-top" />}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -52,7 +50,7 @@ export function MobileLayout({
             exit="exit"
             variants={pageVariants}
             transition={pageTransition}
-            className="px-4 py-4"
+            className="px-4 py-4 md:px-8 md:py-6 md:max-w-6xl md:mx-auto"
           >
             {children}
           </motion.div>

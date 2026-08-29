@@ -23,9 +23,9 @@ export function SwipeableItem({
   const handleDragEnd = () => {
     const currentX = x.get();
     if (currentX < -100 && onDelete) {
-      onDelete();
+      x.set(-150);
+      return;
     }
-    // Reset position
     x.set(0);
   };
 

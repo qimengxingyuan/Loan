@@ -11,12 +11,12 @@ interface LoanState {
   fetchLoans: () => Promise<void>;
   fetchLoanById: (id: string) => Promise<void>;
   fetchSchedule: (id: string) => Promise<PaymentScheduleItem[] | null>;
-  createLoan: (data: Parameters<typeof loanApi.create>[0]) => Promise<void>;
-  updateLoan: (id: string, data: Parameters<typeof loanApi.update>[1]) => Promise<void>;
-  deleteLoan: (id: string) => Promise<void>;
-  addRateChange: (id: string, data: Parameters<typeof loanApi.addRateChange>[1]) => Promise<void>;
-  deleteRateChange: (loanId: string, rateChangeId: string) => Promise<void>;
-  addPrepayment: (id: string, data: Parameters<typeof loanApi.addPrepayment>[1]) => Promise<void>;
+  createLoan: (data: Parameters<typeof loanApi.create>[0]) => Promise<boolean>;
+  updateLoan: (id: string, data: Parameters<typeof loanApi.update>[1]) => Promise<boolean>;
+  deleteLoan: (id: string) => Promise<boolean>;
+  addRateChange: (id: string, data: Parameters<typeof loanApi.addRateChange>[1]) => Promise<boolean>;
+  deleteRateChange: (loanId: string, rateChangeId: string) => Promise<boolean>;
+  addPrepayment: (id: string, data: Parameters<typeof loanApi.addPrepayment>[1]) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -84,15 +84,16 @@ export const useLoanStore = create<LoanState>((set, get) => ({
       const response = await loanApi.create(data);
       if (response.success && response.data) {
         await get().fetchLoans();
+        return true;
       } else {
         const errorMsg = response.error || 'Failed to create loan';
         set({ error: errorMsg });
-        throw new Error(errorMsg);
+        return false;
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Network error';
       set({ error: errorMsg });
-      throw err;
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -107,15 +108,16 @@ export const useLoanStore = create<LoanState>((set, get) => ({
         if (get().currentLoan?.id === id) {
           await get().fetchLoanById(id);
         }
+        return true;
       } else {
         const errorMsg = response.error || 'Failed to update loan';
         set({ error: errorMsg });
-        throw new Error(errorMsg);
+        return false;
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Network error';
       set({ error: errorMsg });
-      throw err;
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -130,11 +132,14 @@ export const useLoanStore = create<LoanState>((set, get) => ({
         if (get().currentLoan?.id === id) {
           set({ currentLoan: null });
         }
+        return true;
       } else {
         set({ error: response.error || 'Failed to delete loan' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -146,11 +151,14 @@ export const useLoanStore = create<LoanState>((set, get) => ({
       const response = await loanApi.addRateChange(id, data);
       if (response.success) {
         await get().fetchLoanById(id);
+        return true;
       } else {
         set({ error: response.error || 'Failed to add rate change' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -162,11 +170,14 @@ export const useLoanStore = create<LoanState>((set, get) => ({
       const response = await loanApi.deleteRateChange(loanId, rateChangeId);
       if (response.success) {
         await get().fetchLoanById(loanId);
+        return true;
       } else {
         set({ error: response.error || 'Failed to delete rate change' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }
@@ -178,11 +189,14 @@ export const useLoanStore = create<LoanState>((set, get) => ({
       const response = await loanApi.addPrepayment(id, data);
       if (response.success) {
         await get().fetchLoanById(id);
+        return true;
       } else {
         set({ error: response.error || 'Failed to add prepayment' });
+        return false;
       }
     } catch (err) {
       set({ error: 'Network error' });
+      return false;
     } finally {
       set({ loading: false });
     }

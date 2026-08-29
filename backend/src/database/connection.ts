@@ -6,7 +6,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, '../../../../data/loans.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, '../../../../data/loan.db');
 
 // Ensure database directory exists
 const dbDir = path.dirname(dbPath);
@@ -20,6 +20,17 @@ export const db = dbInstance;
 // 启用外键约束
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+
+function hasColumn(tableName: string, columnName: string): boolean {
+  const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all() as { name: string }[];
+  return tableInfo.some(col => col.name === columnName);
+}
+
+function addColumnIfMissing(tableName: string, columnName: string, definition: string): void {
+  if (!hasColumn(tableName, columnName)) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
+  }
+}
 
 // 初始化数据库表
 export function initDatabase(): void {
@@ -99,26 +110,9 @@ export function initDatabase(): void {
     )
   `);
 
-  // 尝试添加 loan_date 列（如果表已存在且没有该列）
-  try {
-    db.exec(`ALTER TABLE loans ADD COLUMN loan_date TEXT NOT NULL DEFAULT ''`);
-  } catch (e) {
-    // 忽略列已存在的错误
-  }
-
-  // 尝试添加 minimum_payment 列（如果表已存在且没有该列）
-  try {
-    db.exec(`ALTER TABLE loans ADD COLUMN minimum_payment REAL`);
-  } catch (e) {
-    // 忽略列已存在的错误
-  }
-
-  // 尝试添加 icon 列（如果表已存在且没有该列）
-  try {
-    db.exec(`ALTER TABLE loans ADD COLUMN icon TEXT`);
-  } catch (e) {
-    // 忽略列已存在的错误
-  }
+  addColumnIfMissing('loans', 'loan_date', `loan_date TEXT NOT NULL DEFAULT ''`);
+  addColumnIfMissing('loans', 'minimum_payment', 'minimum_payment REAL');
+  addColumnIfMissing('loans', 'icon', 'icon TEXT');
 
   // 利率变更表
   db.exec(`
@@ -133,12 +127,7 @@ export function initDatabase(): void {
     )
   `);
 
-  // 尝试添加 end_date 列（如果表已存在且没有该列）
-  try {
-    db.exec(`ALTER TABLE rate_changes ADD COLUMN end_date TEXT`);
-  } catch (e) {
-    // 忽略列已存在的错误
-  }
+  addColumnIfMissing('rate_changes', 'end_date', 'end_date TEXT');
 
   // 提前还款表
   db.exec(`

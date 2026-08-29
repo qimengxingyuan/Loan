@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { formatLocalDate } from '../../utils/date';
 
 interface DatePickerProps {
   value: string;
@@ -157,7 +158,7 @@ export function DatePicker({
   const goToToday = () => {
     const today = new Date();
     setViewDate(today);
-    const dateStr = today.toISOString().split('T')[0];
+    const dateStr = formatLocalDate(today);
     if (isDateSelectable(today.getFullYear(), today.getMonth(), today.getDate())) {
       onChange(dateStr);
     }

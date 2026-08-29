@@ -12,7 +12,7 @@ export function Card({ children, className = '', onClick, pressable = false }: C
     <motion.div
       onClick={onClick}
       whileTap={pressable ? { scale: 0.98 } : undefined}
-      className={`bg-[var(--surface)] rounded-[24px] p-5 shadow-[var(--shadow-card)] border border-[var(--border)] transition-colors ${
+      className={`bg-[var(--surface)] rounded-lg p-5 shadow-[var(--shadow-card)] border border-[var(--border)] transition-colors ${
         pressable ? 'cursor-pointer hover:bg-gray-50/50' : ''
       } ${className}`}
     >
@@ -39,18 +39,15 @@ export function StatCard({ label, value, unit, color = 'primary' }: StatCardProp
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className={`relative overflow-hidden rounded-[28px] p-7 bg-gradient-to-br ${colorMap[color]} text-white shadow-xl min-w-[280px] flex-shrink-0 border border-white/10 backdrop-blur-md`}
+      className={`relative overflow-hidden rounded-lg p-7 bg-gradient-to-br ${colorMap[color]} text-white shadow-[var(--shadow-md)] min-w-[280px] flex-shrink-0 border border-white/10 md:min-w-0`}
     >
       <div className="relative z-10">
-        <div className="text-white/80 text-[15px] font-medium tracking-wide mb-3">{label}</div>
+        <div className="text-white/80 text-[15px] font-medium mb-3">{label}</div>
         <div className="flex items-baseline gap-2">
-          <span className="text-[40px] font-bold tracking-tight font-mono leading-none drop-shadow-sm">{value}</span>
+          <span className="text-[40px] font-bold font-mono leading-none drop-shadow-sm">{value}</span>
           {unit && <span className="text-white/80 text-[16px] font-medium font-mono">{unit}</span>}
         </div>
       </div>
-      {/* Decorative background elements */}
-      <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-      <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-24 h-24 bg-black/10 rounded-full blur-xl"></div>
     </motion.div>
   );
 }

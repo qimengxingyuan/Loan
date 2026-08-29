@@ -6,15 +6,25 @@ import { Card } from '../components/UI/Card';
 import { Sheet } from '../components/UI/Sheet';
 import { SwipeableItem } from '../components/UI/SwipeableItem';
 import { DatePicker } from '../components/UI/DatePicker';
+import { ConfirmDialog } from '../components/UI/ConfirmDialog';
 import { useLoanStore } from '../stores/loanStore';
 import { useFixedDebtStore } from '../stores/fixedDebtStore';
 import { usePrepaymentStore } from '../stores/prepaymentStore';
-import { RepaymentMethod, type RateChange } from '../types';
+import { RepaymentMethod, type FixedDebt, type Loan, type PrepaymentWithLoan, type RateChange } from '../types';
+import { formatLocalDate } from '../utils/date';
+import { formatCompactCurrency, getMethodLabel } from '../utils/format';
+
+type FormErrors = Record<string, string>;
+type DeleteTarget =
+  | { type: 'loan'; id: string; name: string }
+  | { type: 'debt'; id: string; name: string }
+  | { type: 'prepayment'; loanId: string; id: string; name: string }
+  | { type: 'rateChange'; loanId: string; id: string; name: string };
 
 export default function LoanManager() {
   const { loans, fetchLoans, deleteLoan, createLoan, updateLoan, currentLoan, fetchLoanById, addRateChange, deleteRateChange, error: loanError, loading: loanLoading } = useLoanStore();
-  const { fixedDebts, fetchFixedDebts, deleteFixedDebt, createFixedDebt, updateFixedDebt } = useFixedDebtStore();
-  const { prepayments, fetchPrepayments, createPrepayment, updatePrepayment, deletePrepayment } = usePrepaymentStore();
+  const { fixedDebts, fetchFixedDebts, deleteFixedDebt, createFixedDebt, updateFixedDebt, error: debtError, loading: debtLoading } = useFixedDebtStore();
+  const { prepayments, fetchPrepayments, createPrepayment, updatePrepayment, deletePrepayment, error: prepaymentError, loading: prepaymentLoading } = usePrepaymentStore();
   
   const [activeTab, setActiveTab] = useState<'loans' | 'debts' | 'prepayments'>('loans');
   const [showLoanSheet, setShowLoanSheet] = useState(false);
@@ -27,6 +37,11 @@ export default function LoanManager() {
   const [editingPrepaymentId, setEditingPrepaymentId] = useState<string | null>(null);
   const [editingPrepaymentLoanId, setEditingPrepaymentLoanId] = useState<string | null>(null);
   const [editingRateChangeLoanId, setEditingRateChangeLoanId] = useState<string | null>(null);
+  const [loanFormErrors, setLoanFormErrors] = useState<FormErrors>({});
+  const [debtFormErrors, setDebtFormErrors] = useState<FormErrors>({});
+  const [prepaymentFormErrors, setPrepaymentFormErrors] = useState<FormErrors>({});
+  const [rateChangeFormErrors, setRateChangeFormErrors] = useState<FormErrors>({});
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   // Loan form state
   const [loanForm, setLoanForm] = useState<{
@@ -44,7 +59,7 @@ export default function LoanManager() {
     totalAmount: '',
     totalMonths: '',
     method: RepaymentMethod.EQUAL_INSTALLMENT,
-    loanDate: new Date().toISOString().split('T')[0],
+    loanDate: formatLocalDate(),
     paymentDay: '',
     initialRate: '',
     minimumPayment: '',
@@ -56,7 +71,7 @@ export default function LoanManager() {
     name: '',
     amount: '',
     description: '',
-    debtDate: new Date().toISOString().split('T')[0]
+    debtDate: formatLocalDate()
   });
 
   // Prepayment form state
@@ -67,7 +82,7 @@ export default function LoanManager() {
     type: 'reduce_term' | 'reduce_payment';
   }>({
     loanId: '',
-    paymentDate: new Date().toISOString().split('T')[0],
+    paymentDate: formatLocalDate(),
     amount: '',
     type: 'reduce_term'
   });
@@ -75,7 +90,7 @@ export default function LoanManager() {
   // Rate change form state
   const [rateChangeForm, setRateChangeForm] = useState({
     loanId: '',
-    effectiveDate: new Date().toISOString().split('T')[0],
+    effectiveDate: formatLocalDate(),
     endDate: '',
     annualRate: ''
   });
@@ -86,35 +101,87 @@ export default function LoanManager() {
   }, [fetchLoans, fetchFixedDebts]);
 
   useEffect(() => {
-    if (loans.length > 0) {
-      fetchPrepayments(loans);
-    }
+    fetchPrepayments(loans);
   }, [loans, fetchPrepayments]);
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000) {
-      return (amount / 10000).toFixed(1) + '万';
-    }
-    return amount.toFixed(0);
-  };
-
-  const getMethodLabel = (method: RepaymentMethod) => {
-    switch (method) {
-      case RepaymentMethod.EQUAL_INSTALLMENT:
-        return '等额本息';
-      case RepaymentMethod.EQUAL_PRINCIPAL:
-        return '等额本金';
-      case RepaymentMethod.EQUAL_PRINCIPAL_INTEREST:
-        return '等本等息';
-      case RepaymentMethod.FREE_REPAYMENT:
-        return '自由还款';
-      default:
-        return '等额本息';
-    }
-  };
 
   const getPrepaymentTypeLabel = (type: 'reduce_term' | 'reduce_payment') => {
     return type === 'reduce_term' ? '缩短期限' : '减少月供';
+  };
+
+  const parseAmount = (value: string) => Number.parseFloat(value);
+  const parseInteger = (value: string) => Number.parseInt(value, 10);
+
+  const validateLoanForm = (): boolean => {
+    const errors: FormErrors = {};
+    const totalAmount = parseAmount(loanForm.totalAmount);
+    const totalMonths = parseInteger(loanForm.totalMonths);
+    const initialRate = parseAmount(loanForm.initialRate);
+    const paymentDay = parseInteger(loanForm.paymentDay);
+    const minimumPayment = parseAmount(loanForm.minimumPayment);
+
+    if (!loanForm.name.trim()) errors.name = '请输入贷款名称';
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) errors.totalAmount = '贷款总额必须大于 0';
+    if (!Number.isInteger(totalMonths) || totalMonths <= 0) errors.totalMonths = '期数必须是正整数';
+    if (!Number.isFinite(initialRate) || initialRate < 0) errors.initialRate = '年化利率不能为负';
+    if (!Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 31) errors.paymentDay = '还款日必须在 1-31 之间';
+    if (loanForm.method === RepaymentMethod.FREE_REPAYMENT && (!Number.isFinite(minimumPayment) || minimumPayment <= 0)) {
+      errors.minimumPayment = '请输入大于 0 的最低还款额';
+    }
+
+    setLoanFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateDebtForm = (): boolean => {
+    const errors: FormErrors = {};
+    const amount = parseAmount(debtForm.amount);
+    if (!debtForm.name.trim()) errors.name = '请输入债务名称';
+    if (!Number.isFinite(amount) || amount <= 0) errors.amount = '债务金额必须大于 0';
+    setDebtFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validatePrepaymentForm = (): boolean => {
+    const errors: FormErrors = {};
+    const amount = parseAmount(prepaymentForm.amount);
+    if (!prepaymentForm.loanId) errors.loanId = '请选择贷款';
+    if (!Number.isFinite(amount) || amount <= 0) errors.amount = '还款金额必须大于 0';
+    setPrepaymentFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateRateChangeForm = (): boolean => {
+    const errors: FormErrors = {};
+    const annualRate = parseAmount(rateChangeForm.annualRate);
+    if (!Number.isFinite(annualRate) || annualRate < 0) errors.annualRate = '年化利率不能为负';
+    if (rateChangeForm.endDate && rateChangeForm.endDate <= rateChangeForm.effectiveDate) {
+      errors.endDate = '结束日期必须晚于生效日期';
+    }
+    setRateChangeFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const renderFieldError = (message?: string) => (
+    message ? <div className="mt-1 text-small text-[var(--danger)]">{message}</div> : null
+  );
+
+  const requestDelete = (target: DeleteTarget) => setDeleteTarget(target);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    let success = false;
+    if (deleteTarget.type === 'loan') {
+      success = await deleteLoan(deleteTarget.id);
+    } else if (deleteTarget.type === 'debt') {
+      success = await deleteFixedDebt(deleteTarget.id);
+    } else if (deleteTarget.type === 'prepayment') {
+      success = await deletePrepayment(deleteTarget.loanId, deleteTarget.id);
+    } else {
+      success = await deleteRateChange(deleteTarget.loanId, deleteTarget.id);
+    }
+
+    if (success) setDeleteTarget(null);
   };
 
   const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,112 +202,116 @@ export default function LoanManager() {
 
   const handleCreateLoan = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateLoanForm()) return;
+
     const data = {
-        name: loanForm.name,
-        totalAmount: parseFloat(loanForm.totalAmount),
-        totalMonths: parseInt(loanForm.totalMonths),
+        name: loanForm.name.trim(),
+        totalAmount: parseAmount(loanForm.totalAmount),
+        totalMonths: parseInteger(loanForm.totalMonths),
         method: loanForm.method,
         loanDate: loanForm.loanDate,
-        paymentDay: parseInt(loanForm.paymentDay),
-        initialRate: parseFloat(loanForm.initialRate) / 100,
-        minimumPayment: loanForm.minimumPayment ? parseFloat(loanForm.minimumPayment) : undefined,
+        paymentDay: parseInteger(loanForm.paymentDay),
+        initialRate: parseAmount(loanForm.initialRate) / 100,
+        minimumPayment: loanForm.minimumPayment ? parseAmount(loanForm.minimumPayment) : undefined,
         icon: loanForm.icon || undefined
       };
 
-    try {
-      if (editingLoanId) {
-        await updateLoan(editingLoanId, data);
-      } else {
-        await createLoan(data);
-      }
-      
-      // 成功后才关闭表单和重置
-      setShowLoanSheet(false);
-      setEditingLoanId(null);
-      setLoanForm({
-        name: '',
-        totalAmount: '',
-        totalMonths: '',
-        method: RepaymentMethod.EQUAL_INSTALLMENT,
-        loanDate: new Date().toISOString().split('T')[0],
-        paymentDay: '',
-        initialRate: '',
-        minimumPayment: '',
-        icon: ''
-      });
-    } catch (err) {
-      // 错误已在 store 中处理
-      console.error('Failed to create/update loan:', err);
-    }
+    const success = editingLoanId
+      ? await updateLoan(editingLoanId, data)
+      : await createLoan(data);
+
+    if (!success) return;
+
+    setShowLoanSheet(false);
+    setEditingLoanId(null);
+    setLoanFormErrors({});
+    setLoanForm({
+      name: '',
+      totalAmount: '',
+      totalMonths: '',
+      method: RepaymentMethod.EQUAL_INSTALLMENT,
+      loanDate: formatLocalDate(),
+      paymentDay: '',
+      initialRate: '',
+      minimumPayment: '',
+      icon: ''
+    });
   };
 
   const handleCreateDebt = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateDebtForm()) return;
+
     const data = {
-      name: debtForm.name,
-      amount: parseFloat(debtForm.amount),
-      description: debtForm.description,
+      name: debtForm.name.trim(),
+      amount: parseAmount(debtForm.amount),
+      description: debtForm.description.trim(),
       debtDate: debtForm.debtDate
     };
 
-    if (editingDebtId) {
-      await updateFixedDebt(editingDebtId, data);
-    } else {
-      await createFixedDebt(data);
-    }
+    const success = editingDebtId
+      ? await updateFixedDebt(editingDebtId, data)
+      : await createFixedDebt(data);
+
+    if (!success) return;
 
     setShowDebtSheet(false);
     setEditingDebtId(null);
+    setDebtFormErrors({});
     setDebtForm({
       name: '',
       amount: '',
       description: '',
-      debtDate: new Date().toISOString().split('T')[0]
+      debtDate: formatLocalDate()
     });
   };
 
   const handleCreatePrepayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validatePrepaymentForm()) return;
+
     const data = {
       paymentDate: prepaymentForm.paymentDate,
-      amount: parseFloat(prepaymentForm.amount),
+      amount: parseAmount(prepaymentForm.amount),
       type: prepaymentForm.type
     };
 
-    if (editingPrepaymentId && editingPrepaymentLoanId) {
-      await updatePrepayment(editingPrepaymentLoanId, editingPrepaymentId, data);
-    } else {
-      await createPrepayment(prepaymentForm.loanId, data);
-    }
+    const success = editingPrepaymentId && editingPrepaymentLoanId
+      ? await updatePrepayment(editingPrepaymentLoanId, editingPrepaymentId, data)
+      : await createPrepayment(prepaymentForm.loanId, data);
+
+    if (!success) return;
 
     setShowPrepaymentSheet(false);
     setEditingPrepaymentId(null);
     setEditingPrepaymentLoanId(null);
+    setPrepaymentFormErrors({});
     setPrepaymentForm({
       loanId: '',
-      paymentDate: new Date().toISOString().split('T')[0],
+      paymentDate: formatLocalDate(),
       amount: '',
       type: 'reduce_term'
     });
   };
 
-  const handleEditLoan = (loan: any) => {
+  const handleEditLoan = (loan: Loan) => {
     setLoanForm({
       name: loan.name,
       totalAmount: loan.totalAmount.toString(),
       totalMonths: loan.totalMonths.toString(),
       method: loan.method,
-      loanDate: loan.loanDate || new Date().toISOString().split('T')[0],
+      loanDate: loan.loanDate || formatLocalDate(),
       paymentDay: loan.paymentDay.toString(),
       initialRate: (loan.initialRate * 100).toString(),
       minimumPayment: loan.minimumPayment ? loan.minimumPayment.toString() : '',
       icon: loan.icon || ''
     });
     setEditingLoanId(loan.id);
+    setLoanFormErrors({});
     setShowLoanSheet(true);
   };
 
-  const handleEditDebt = (debt: any) => {
+  const handleEditDebt = (debt: FixedDebt) => {
     setDebtForm({
       name: debt.name,
       amount: debt.amount.toString(),
@@ -248,10 +319,11 @@ export default function LoanManager() {
       debtDate: debt.debtDate
     });
     setEditingDebtId(debt.id);
+    setDebtFormErrors({});
     setShowDebtSheet(true);
   };
 
-  const handleEditPrepayment = (prepayment: any) => {
+  const handleEditPrepayment = (prepayment: PrepaymentWithLoan) => {
     setPrepaymentForm({
       loanId: prepayment.loanId,
       paymentDate: prepayment.paymentDate,
@@ -260,6 +332,7 @@ export default function LoanManager() {
     });
     setEditingPrepaymentId(prepayment.id);
     setEditingPrepaymentLoanId(prepayment.loanId);
+    setPrepaymentFormErrors({});
     setShowPrepaymentSheet(true);
   };
 
@@ -270,12 +343,13 @@ export default function LoanManager() {
       totalAmount: '',
       totalMonths: '',
       method: RepaymentMethod.EQUAL_INSTALLMENT,
-      loanDate: new Date().toISOString().split('T')[0],
+      loanDate: formatLocalDate(),
       paymentDay: '',
       initialRate: '',
       minimumPayment: '',
       icon: ''
     });
+    setLoanFormErrors({});
     setShowLoanSheet(true);
   };
 
@@ -285,8 +359,9 @@ export default function LoanManager() {
       name: '',
       amount: '',
       description: '',
-      debtDate: new Date().toISOString().split('T')[0]
+      debtDate: formatLocalDate()
     });
+    setDebtFormErrors({});
     setShowDebtSheet(true);
   };
 
@@ -295,30 +370,37 @@ export default function LoanManager() {
     setEditingPrepaymentLoanId(null);
     setPrepaymentForm({
       loanId: loans.length > 0 ? loans[0].id : '',
-      paymentDate: new Date().toISOString().split('T')[0],
+      paymentDate: formatLocalDate(),
       amount: '',
       type: 'reduce_term'
     });
+    setPrepaymentFormErrors({});
     setShowPrepaymentSheet(true);
   };
 
   const handleCreateRateChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateRateChangeForm()) return;
+
     const data = {
       effectiveDate: rateChangeForm.effectiveDate,
       endDate: rateChangeForm.endDate || undefined,
-      annualRate: parseFloat(rateChangeForm.annualRate) / 100
+      annualRate: parseAmount(rateChangeForm.annualRate) / 100
     };
 
+    let success = false;
     if (editingRateChangeLoanId) {
-      await addRateChange(editingRateChangeLoanId, data);
+      success = await addRateChange(editingRateChangeLoanId, data);
     }
+
+    if (!success) return;
 
     setShowRateChangeSheet(false);
     setEditingRateChangeLoanId(null);
+    setRateChangeFormErrors({});
     setRateChangeForm({
       loanId: '',
-      effectiveDate: new Date().toISOString().split('T')[0],
+      effectiveDate: formatLocalDate(),
       endDate: '',
       annualRate: ''
     });
@@ -328,10 +410,11 @@ export default function LoanManager() {
     setEditingRateChangeLoanId(loanId);
     setRateChangeForm({
       loanId: loanId,
-      effectiveDate: new Date().toISOString().split('T')[0],
+      effectiveDate: formatLocalDate(),
       endDate: '',
       annualRate: ''
     });
+    setRateChangeFormErrors({});
     await fetchLoanById(loanId);
     setShowRateChangeSheet(true);
   };
@@ -408,7 +491,7 @@ export default function LoanManager() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <SwipeableItem onDelete={() => deleteLoan(loan.id)}>
+                    <SwipeableItem onDelete={() => requestDelete({ type: 'loan', id: loan.id, name: loan.name })}>
                       <Card pressable className="relative">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
@@ -454,7 +537,7 @@ export default function LoanManager() {
                             <div>
                               <div className="text-small text-[var(--text-secondary)]">贷款总额</div>
                               <div className="text-title-3 font-mono font-semibold text-[var(--primary)]">
-                                ¥{formatCurrency(loan.totalAmount)}
+                                ¥{formatCompactCurrency(loan.totalAmount)}
                               </div>
                             </div>
                             <div className="text-right">
@@ -495,7 +578,7 @@ export default function LoanManager() {
                   暂无提前还款记录
                 </div>
                 <div className="text-caption text-[var(--text-tertiary)]">
-                  点击下方按钮添加提前还款记录
+                  {loans.length === 0 ? '请先添加贷款，再记录提前还款' : '点击下方按钮添加提前还款记录'}
                 </div>
               </Card>
             ) : (
@@ -507,7 +590,7 @@ export default function LoanManager() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <SwipeableItem onDelete={() => deletePrepayment(prepayment.loanId, prepayment.id)}>
+                    <SwipeableItem onDelete={() => requestDelete({ type: 'prepayment', loanId: prepayment.loanId, id: prepayment.id, name: prepayment.loanName })}>
                       <Card pressable className="relative">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
@@ -531,7 +614,7 @@ export default function LoanManager() {
                               <Edit2 size={18} />
                             </button>
                             <button 
-                              onClick={(e) => { e.stopPropagation(); deletePrepayment(prepayment.loanId, prepayment.id); }}
+                              onClick={(e) => { e.stopPropagation(); requestDelete({ type: 'prepayment', loanId: prepayment.loanId, id: prepayment.id, name: prepayment.loanName }); }}
                               className="touch-target text-[var(--text-tertiary)] hover:text-red-500 transition-colors"
                             >
                               <Trash2 size={18} />
@@ -544,7 +627,7 @@ export default function LoanManager() {
                             <div>
                               <div className="text-small text-[var(--text-secondary)]">还款金额</div>
                               <div className="text-title-3 font-mono font-semibold text-[var(--accent)]">
-                                ¥{formatCurrency(prepayment.amount)}
+                                ¥{formatCompactCurrency(prepayment.amount)}
                               </div>
                             </div>
                             <div className="text-right">
@@ -591,7 +674,7 @@ export default function LoanManager() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <SwipeableItem onDelete={() => deleteFixedDebt(debt.id)}>
+                    <SwipeableItem onDelete={() => requestDelete({ type: 'debt', id: debt.id, name: debt.name })}>
                       <Card pressable className="relative">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -609,7 +692,7 @@ export default function LoanManager() {
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             <div className="text-title-3 font-mono font-semibold text-[var(--warning)]">
-                              ¥{formatCurrency(debt.amount)}
+                              ¥{formatCompactCurrency(debt.amount)}
                             </div>
                             <div className="flex items-center gap-4">
                               <button 
@@ -619,7 +702,7 @@ export default function LoanManager() {
                                 <Edit2 size={16} />
                               </button>
                               <button 
-                                onClick={(e) => { e.stopPropagation(); deleteFixedDebt(debt.id); }}
+                                onClick={(e) => { e.stopPropagation(); requestDelete({ type: 'debt', id: debt.id, name: debt.name }); }}
                                 className="touch-target text-[var(--text-tertiary)] hover:text-red-500 transition-colors"
                               >
                                 <Trash2 size={16} />
@@ -642,15 +725,20 @@ export default function LoanManager() {
         initial={false}
         whileTap={{ scale: 0.95 }}
         onClick={() => {
+          if (activeTab === 'prepayments' && loans.length === 0) {
+            setActiveTab('loans');
+            openNewLoanSheet();
+            return;
+          }
           if (activeTab === 'loans') openNewLoanSheet();
           else if (activeTab === 'prepayments') openNewPrepaymentSheet();
           else openNewDebtSheet();
         }}
-        className="fixed left-1/2 -translate-x-1/2 z-[60] bottom-28 px-6 py-3 rounded-full gradient-accent flex items-center gap-2 shadow-lg"
+        className="fixed left-1/2 -translate-x-1/2 z-[60] bottom-28 px-6 py-3 rounded-full gradient-accent flex items-center gap-2 shadow-lg md:left-[calc(50%+48px)]"
       >
         <Plus size={20} className="text-white" />
         <span className="text-white text-body-medium font-medium">
-          {activeTab === 'loans' ? '添加贷款' : activeTab === 'prepayments' ? '添加提前还款' : '添加债务'}
+          {activeTab === 'loans' ? '添加贷款' : activeTab === 'prepayments' ? (loans.length === 0 ? '去添加贷款' : '添加提前还款') : '添加债务'}
         </span>
       </motion.button>
 
@@ -659,7 +747,7 @@ export default function LoanManager() {
 
       {/* Add Loan Sheet */}
       <Sheet isOpen={showLoanSheet} onClose={() => setShowLoanSheet(false)} title={editingLoanId ? '编辑贷款' : '添加贷款'} height="full">
-        <form onSubmit={handleCreateLoan} className="p-4 space-y-4">
+        <form onSubmit={handleCreateLoan} noValidate className="p-4 space-y-4">
           <div>
             <label className="block text-caption-medium text-[var(--text-secondary)] mb-2">贷款图标 (可选)</label>
             <div className="flex items-center gap-4">
@@ -703,6 +791,7 @@ export default function LoanManager() {
               placeholder="例如：房贷、车贷"
               required
             />
+            {renderFieldError(loanFormErrors.name)}
           </div>
           
           <div className="grid grid-cols-2 gap-4">
@@ -716,6 +805,7 @@ export default function LoanManager() {
                 placeholder="0.00"
                 required
               />
+              {renderFieldError(loanFormErrors.totalAmount)}
             </div>
             <div>
               <label className="block text-caption-medium text-[var(--text-secondary)] mb-2">期数(月)</label>
@@ -727,6 +817,7 @@ export default function LoanManager() {
                 placeholder="360"
                 required
               />
+              {renderFieldError(loanFormErrors.totalMonths)}
             </div>
           </div>
 
@@ -741,6 +832,7 @@ export default function LoanManager() {
               placeholder="4.25"
               required
             />
+            {renderFieldError(loanFormErrors.initialRate)}
           </div>
 
           <div>
@@ -806,6 +898,7 @@ export default function LoanManager() {
                 className="w-full px-4 py-3.5 bg-[var(--background)] rounded-2xl text-body-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 transition-all font-mono"
                 required={loanForm.method === RepaymentMethod.FREE_REPAYMENT}
               />
+              {renderFieldError(loanFormErrors.minimumPayment)}
             </div>
           )}
 
@@ -830,6 +923,7 @@ export default function LoanManager() {
                 placeholder="15"
                 required
               />
+              {renderFieldError(loanFormErrors.paymentDay)}
             </div>
           </div>
 
@@ -853,7 +947,7 @@ export default function LoanManager() {
 
       {/* Add Prepayment Sheet */}
       <Sheet isOpen={showPrepaymentSheet} onClose={() => setShowPrepaymentSheet(false)} title={editingPrepaymentId ? '编辑提前还款' : '添加提前还款'} height="full">
-        <form onSubmit={handleCreatePrepayment} className="p-4 space-y-4">
+        <form onSubmit={handleCreatePrepayment} noValidate className="p-4 space-y-4">
           <div>
             <label className="block text-caption-medium text-[var(--text-secondary)] mb-2">选择贷款</label>
             <select
@@ -868,6 +962,7 @@ export default function LoanManager() {
                 <option key={loan.id} value={loan.id}>{loan.name}</option>
               ))}
             </select>
+            {renderFieldError(prepaymentFormErrors.loanId)}
           </div>
           
           <div>
@@ -880,6 +975,7 @@ export default function LoanManager() {
               placeholder="0.00"
               required
             />
+            {renderFieldError(prepaymentFormErrors.amount)}
           </div>
 
           <DatePicker
@@ -918,11 +1014,17 @@ export default function LoanManager() {
           </div>
 
           <div className="pt-4">
+            {prepaymentError && (
+              <div className="mb-3 rounded-xl bg-red-50 p-3 text-small text-red-500">
+                {prepaymentError}
+              </div>
+            )}
             <button
               type="submit"
-              className="w-full py-4 gradient-accent text-white rounded-2xl text-body-medium font-semibold active:scale-[0.98] transition-transform shadow-lg shadow-[var(--accent)]/30"
+              disabled={prepaymentLoading}
+              className="w-full py-4 gradient-accent text-white rounded-2xl text-body-medium font-semibold active:scale-[0.98] transition-transform shadow-lg shadow-[var(--accent)]/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {editingPrepaymentId ? '确认修改' : '确认添加'}
+              {prepaymentLoading ? '处理中...' : (editingPrepaymentId ? '确认修改' : '确认添加')}
             </button>
           </div>
         </form>
@@ -930,7 +1032,7 @@ export default function LoanManager() {
 
       {/* Add Debt Sheet */}
       <Sheet isOpen={showDebtSheet} onClose={() => setShowDebtSheet(false)} title={editingDebtId ? '编辑固定债务' : '添加固定债务'} height="full">
-        <form onSubmit={handleCreateDebt} className="p-4 space-y-4">
+        <form onSubmit={handleCreateDebt} noValidate className="p-4 space-y-4">
           <div>
             <label className="block text-caption-medium text-[var(--text-secondary)] mb-2">债务名称</label>
             <input
@@ -941,6 +1043,7 @@ export default function LoanManager() {
               placeholder="例如：信用卡欠款"
               required
             />
+            {renderFieldError(debtFormErrors.name)}
           </div>
           
           <div>
@@ -953,6 +1056,7 @@ export default function LoanManager() {
               placeholder="金额"
               required
             />
+            {renderFieldError(debtFormErrors.amount)}
           </div>
 
           <DatePicker
@@ -974,11 +1078,17 @@ export default function LoanManager() {
           </div>
 
           <div className="pt-4">
+            {debtError && (
+              <div className="mb-3 rounded-xl bg-red-50 p-3 text-small text-red-500">
+                {debtError}
+              </div>
+            )}
             <button
               type="submit"
-              className="w-full py-4 bg-[var(--success)] text-white rounded-xl text-body-medium font-semibold active:scale-[0.98] transition-transform"
+              disabled={debtLoading}
+              className="w-full py-4 bg-[var(--success)] text-white rounded-xl text-body-medium font-semibold active:scale-[0.98] transition-transform disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {editingDebtId ? '确认修改' : '确认添加'}
+              {debtLoading ? '处理中...' : (editingDebtId ? '确认修改' : '确认添加')}
             </button>
           </div>
         </form>
@@ -1026,7 +1136,7 @@ export default function LoanManager() {
                         </div>
                       </div>
                       <button
-                        onClick={() => editingRateChangeLoanId && deleteRateChange(editingRateChangeLoanId, rateChange.id)}
+                        onClick={() => editingRateChangeLoanId && requestDelete({ type: 'rateChange', loanId: editingRateChangeLoanId, id: rateChange.id, name: `${(rateChange.annualRate * 100).toFixed(2)}%` })}
                         className="touch-target text-[var(--text-tertiary)] hover:text-red-500 transition-colors"
                       >
                         <Trash2 size={16} />
@@ -1047,7 +1157,7 @@ export default function LoanManager() {
           {/* Add New Rate Change Form */}
           <div className="pt-4 border-t border-[var(--border)]">
             <h3 className="text-body-medium font-semibold text-[var(--text-primary)] mb-3">添加新利率</h3>
-            <form onSubmit={handleCreateRateChange} className="space-y-4">
+            <form onSubmit={handleCreateRateChange} noValidate className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <DatePicker
                   label="生效日期"
@@ -1060,6 +1170,7 @@ export default function LoanManager() {
                   value={rateChangeForm.endDate}
                   onChange={(date) => setRateChangeForm({ ...rateChangeForm, endDate: date })}
                 />
+                {renderFieldError(rateChangeFormErrors.endDate)}
               </div>
 
               <div>
@@ -1073,23 +1184,38 @@ export default function LoanManager() {
                   placeholder="例如：3.85"
                   required
                 />
+                {renderFieldError(rateChangeFormErrors.annualRate)}
                 <div className="text-caption text-[var(--text-tertiary)] mt-1">
                   输入新的年化利率百分比，例如 3.85 表示 3.85%
                 </div>
               </div>
 
               <div className="pt-2">
+                {loanError && (
+                  <div className="mb-3 rounded-xl bg-red-50 p-3 text-small text-red-500">
+                    {loanError}
+                  </div>
+                )}
                 <button
                   type="submit"
-                  className="w-full py-4 bg-[var(--warning)] text-white rounded-xl text-body-medium font-semibold active:scale-[0.98] transition-transform"
+                  disabled={loanLoading}
+                  className="w-full py-4 bg-[var(--warning)] text-white rounded-xl text-body-medium font-semibold active:scale-[0.98] transition-transform disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  添加利率变更
+                  {loanLoading ? '处理中...' : '添加利率变更'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       </Sheet>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="确认删除"
+        description={deleteTarget ? `删除「${deleteTarget.name}」后无法恢复。` : ''}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
     </MobileLayout>
   );
 }

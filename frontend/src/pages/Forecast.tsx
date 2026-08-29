@@ -6,6 +6,8 @@ import { Card } from '../components/UI/Card';
 import { ProgressRing } from '../components/UI/ProgressRing';
 import { DatePicker } from '../components/UI/DatePicker';
 import { useDashboardStore } from '../stores/dashboardStore';
+import { formatLocalDate } from '../utils/date';
+import { formatCompactCurrency } from '../utils/format';
 
 export default function Forecast() {
   const { forecastData, dashboardData, fetchForecast } = useDashboardStore();
@@ -17,7 +19,7 @@ export default function Forecast() {
     // 默认设置为1年后
     const oneYearLater = new Date();
     oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-    setSelectedDate(oneYearLater.toISOString().split('T')[0]);
+    setSelectedDate(formatLocalDate(oneYearLater));
   }, []);
 
   const handleSearch = () => {
@@ -25,13 +27,6 @@ export default function Forecast() {
       fetchForecast(selectedDate);
       setHasSearched(true);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000) {
-      return (amount / 10000).toFixed(1) + '万';
-    }
-    return amount.toFixed(0);
   };
 
   const quickDates = [
@@ -43,7 +38,7 @@ export default function Forecast() {
   const setQuickDate = (months: number) => {
     const date = new Date();
     date.setMonth(date.getMonth() + months);
-    setSelectedDate(date.toISOString().split('T')[0]);
+    setSelectedDate(formatLocalDate(date));
   };
 
   const currentDebt = dashboardData?.totalDebt || 0;
@@ -64,7 +59,7 @@ export default function Forecast() {
         <DatePicker
           value={selectedDate}
           onChange={setSelectedDate}
-          min={new Date().toISOString().split('T')[0]}
+          min={formatLocalDate()}
           className="mb-4"
         />
 
@@ -104,13 +99,13 @@ export default function Forecast() {
               {selectedDate} 预估总负债
             </div>
             <div className="text-display font-bold text-[var(--primary)] font-mono mb-2">
-              ¥{formatCurrency(forecastDebt)}
+              ¥{formatCompactCurrency(forecastDebt)}
             </div>
             <div className="flex items-center justify-center gap-2">
               {debtReduction > 0 ? (
                 <>
                   <span className="text-small text-[var(--success)]">
-                    较当前减少 ¥{formatCurrency(debtReduction)}
+                    较当前减少 ¥{formatCompactCurrency(debtReduction)}
                   </span>
                   <span className="px-2 py-0.5 bg-[var(--success)]/10 text-[var(--success)] text-small rounded-full">
                     -{reductionPercent.toFixed(1)}%
@@ -118,7 +113,7 @@ export default function Forecast() {
                 </>
               ) : (
                 <span className="text-small text-[var(--text-secondary)]">
-                  当前总负债 ¥{formatCurrency(currentDebt)}
+                  当前总负债 ¥{formatCompactCurrency(currentDebt)}
                 </span>
               )}
             </div>
@@ -132,7 +127,7 @@ export default function Forecast() {
               </div>
               <div className="text-caption text-[var(--text-secondary)] mb-1">贷款剩余</div>
               <div className="text-title-2 font-bold text-[var(--primary)] font-mono">
-                ¥{formatCurrency(forecastData.totalRemainingPrincipal)}
+                ¥{formatCompactCurrency(forecastData.totalRemainingPrincipal)}
               </div>
             </Card>
             <Card className="text-center">
@@ -141,7 +136,7 @@ export default function Forecast() {
               </div>
               <div className="text-caption text-[var(--text-secondary)] mb-1">固定债务</div>
               <div className="text-title-2 font-bold text-[var(--warning)] font-mono">
-                ¥{formatCurrency(forecastData.totalFixedDebt)}
+                ¥{formatCompactCurrency(forecastData.totalFixedDebt)}
               </div>
             </Card>
           </div>
@@ -178,21 +173,21 @@ export default function Forecast() {
 
                       <div className="flex items-center gap-4 mb-3">
                         <ProgressRing
-                          progress={Math.max(0, Math.min(100, (1 - loan.remainingPeriods / 360) * 100))}
+                          progress={Math.max(0, Math.min(100, (1 - loan.remainingPeriods / loan.totalPeriods) * 100))}
                           size={60}
                           strokeWidth={6}
                           color="var(--accent)"
                         >
                           <div className="text-center">
                             <div className="text-small font-bold text-[var(--accent)] font-mono">
-                              {Math.round((1 - loan.remainingPeriods / 360) * 100)}%
+                              {Math.round(Math.max(0, Math.min(100, (1 - loan.remainingPeriods / loan.totalPeriods) * 100)))}%
                             </div>
                           </div>
                         </ProgressRing>
                         <div className="flex-1">
                           <div className="text-caption text-[var(--text-secondary)] mb-1">剩余本金</div>
                           <div className="text-title-2 font-bold text-[var(--primary)] font-mono">
-                            ¥{formatCurrency(loan.remainingPrincipal)}
+                            ¥{formatCompactCurrency(loan.remainingPrincipal)}
                           </div>
                         </div>
                       </div>
@@ -241,7 +236,7 @@ export default function Forecast() {
                         </div>
                       </div>
                       <div className="text-body-medium font-mono font-semibold text-[var(--warning)]">
-                        ¥{formatCurrency(debt.amount)}
+                        ¥{formatCompactCurrency(debt.amount)}
                       </div>
                     </div>
                   </Card>

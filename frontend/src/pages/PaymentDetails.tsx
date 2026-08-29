@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronDown, Calendar, CheckCircle2, Landmark, Zap } from 'lucide-react';
 import { MobileLayout } from '../components/Layout/MobileLayout';
@@ -14,6 +14,7 @@ type FilterType = 'all' | 'paid' | 'unpaid';
 
 export default function PaymentDetails() {
   const { loans, fetchLoans } = useLoanStore();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const urlLoanId = searchParams.get('loanId');
   const [selectedLoanId, setSelectedLoanId] = useState<string>(urlLoanId || '');
@@ -79,7 +80,6 @@ export default function PaymentDetails() {
     const normalPayments = schedule.filter(s => s.period > 0);
     const paid = normalPayments.filter(s => s.isPaid);
     const unpaid = normalPayments.filter(s => !s.isPaid);
-    // 已还/待还的提前还款记录
     const paidPrepayments = schedule.filter(s => s.period < 0 && s.isPaid);
     
     // 已还本金（正常还款本金 + 提前还款本金）
@@ -88,9 +88,14 @@ export default function PaymentDetails() {
     // 已还利息（正常还款利息 + 提前还款利息）
     const paidInterest = paid.reduce((sum, s) => sum + s.interest, 0)
       + paidPrepayments.reduce((sum, s) => sum + s.interest, 0);
-    // 剩余本金（取最后一个已还记录的剩余本金，或第一个未还记录的剩余本金+本金）
-    const remainingPrincipal = paid.length > 0 
-      ? paid[paid.length - 1].remainingPrincipal 
+    const timeline = [...schedule].sort((a, b) => {
+      const dateCompare = a.paymentDate.localeCompare(b.paymentDate);
+      if (dateCompare !== 0) return dateCompare;
+      return a.period - b.period;
+    });
+    const lastPaid = [...timeline].reverse().find(s => s.isPaid);
+    const remainingPrincipal = lastPaid
+      ? lastPaid.remainingPrincipal
       : (unpaid.length > 0 ? unpaid[0].remainingPrincipal + unpaid[0].principal : 0);
     
     return {
@@ -152,8 +157,9 @@ export default function PaymentDetails() {
       {/* Loan Selector */}
       <div className="mb-4">
         <button
-          onClick={() => setShowLoanSelector(true)}
-          className="w-full flex items-center justify-between bg-white rounded-xl p-4 shadow-sm"
+          onClick={() => loans.length > 0 && setShowLoanSelector(true)}
+          disabled={loans.length === 0}
+          className="w-full flex items-center justify-between bg-white rounded-xl p-4 shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
         >
           <div className="flex items-center gap-3">
             {selectedLoan?.icon ? (
@@ -168,7 +174,7 @@ export default function PaymentDetails() {
             <div>
               <div className="text-caption text-[var(--text-secondary)]">当前贷款</div>
               <div className="text-body-medium font-semibold text-[var(--text-primary)]">
-                {selectedLoan?.name || '选择贷款'}
+                {selectedLoan?.name || (loans.length === 0 ? '暂无贷款' : '选择贷款')}
               </div>
             </div>
           </div>
@@ -251,6 +257,20 @@ export default function PaymentDetails() {
           <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <div className="text-caption text-[var(--text-secondary)]">加载中...</div>
         </div>
+      ) : loans.length === 0 ? (
+        <Card className="py-12 text-center">
+          <div className="w-16 h-16 bg-[var(--border)] rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar size={28} className="text-[var(--text-tertiary)]" />
+          </div>
+          <div className="text-body-medium text-[var(--text-secondary)] mb-3">暂无贷款</div>
+          <button
+            type="button"
+            onClick={() => navigate('/loans')}
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-caption-medium text-white"
+          >
+            去添加贷款
+          </button>
+        </Card>
       ) : filteredSchedule.length === 0 ? (
         <Card className="py-12 text-center">
           <div className="w-16 h-16 bg-[var(--border)] rounded-full flex items-center justify-center mx-auto mb-4">

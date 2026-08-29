@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { FixedDebtService } from '../services/fixedDebtService.js';
 import type { ApiResponse } from '../../../shared/types.ts';
+import {
+  validateCreateFixedDebtRequest,
+  validateUpdateFixedDebtRequest,
+} from '../utils/validation.js';
 
 const router = Router();
 
@@ -17,10 +21,10 @@ router.get('/', (req, res) => {
 // 创建固定债务
 router.post('/', (req, res) => {
   try {
-    const debt = FixedDebtService.createFixedDebt(req.body);
+    const debt = FixedDebtService.createFixedDebt(validateCreateFixedDebtRequest(req.body));
     res.status(201).json({ success: true, data: debt } as ApiResponse<typeof debt>);
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to create fixed debt' } as ApiResponse<never>);
+    res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to create fixed debt' } as ApiResponse<never>);
   }
 });
 
@@ -40,13 +44,13 @@ router.get('/:id', (req, res) => {
 // 更新固定债务
 router.put('/:id', (req, res) => {
   try {
-    const debt = FixedDebtService.updateFixedDebt(req.params.id, req.body);
+    const debt = FixedDebtService.updateFixedDebt(req.params.id, validateUpdateFixedDebtRequest(req.body));
     if (!debt) {
       return res.status(404).json({ success: false, error: 'Fixed debt not found' } as ApiResponse<never>);
     }
     res.json({ success: true, data: debt } as ApiResponse<typeof debt>);
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to update fixed debt' } as ApiResponse<never>);
+    res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to update fixed debt' } as ApiResponse<never>);
   }
 });
 

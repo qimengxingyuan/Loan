@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { LoanService } from '../services/loanService.js';
 import { CalculatorService } from '../services/calculatorService.js';
 import type { ApiResponse } from '../../../shared/types.ts';
+import {
+  validateAddPrepaymentRequest,
+  validateAddRateChangeRequest,
+  validateCreateLoanRequest,
+  validateUpdateLoanRequest,
+} from '../utils/validation.js';
 
 const router = Router();
 
@@ -18,12 +24,21 @@ router.get('/', (req, res) => {
 // 创建贷款
 router.post('/', (req, res) => {
   try {
-    console.log('Creating loan with data:', req.body);
-    const loan = LoanService.createLoan(req.body);
+    const loan = LoanService.createLoan(validateCreateLoanRequest(req.body));
     res.status(201).json({ success: true, data: loan } as ApiResponse<typeof loan>);
   } catch (error) {
     console.error('Error creating loan:', error);
-    res.status(500).json({ success: false, error: `Failed to create loan: ${error instanceof Error ? error.message : 'Unknown error'}` } as ApiResponse<never>);
+    res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to create loan' } as ApiResponse<never>);
+  }
+});
+
+// 获取所有提前还款记录
+router.get('/prepayments', (req, res) => {
+  try {
+    const prepayments = LoanService.getAllPrepaymentsWithLoan();
+    res.json({ success: true, data: prepayments } as ApiResponse<typeof prepayments>);
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch prepayments' } as ApiResponse<never>);
   }
 });
 
@@ -43,13 +58,13 @@ router.get('/:id', (req, res) => {
 // 更新贷款
 router.put('/:id', (req, res) => {
   try {
-    const loan = LoanService.updateLoan(req.params.id, req.body);
+    const loan = LoanService.updateLoan(req.params.id, validateUpdateLoanRequest(req.body));
     if (!loan) {
       return res.status(404).json({ success: false, error: 'Loan not found' } as ApiResponse<never>);
     }
     res.json({ success: true, data: loan } as ApiResponse<typeof loan>);
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to update loan' } as ApiResponse<never>);
+    res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to update loan' } as ApiResponse<never>);
   }
 });
 
@@ -87,17 +102,17 @@ router.post('/:id/rate-changes', (req, res) => {
     if (!loan) {
       return res.status(404).json({ success: false, error: 'Loan not found' } as ApiResponse<never>);
     }
-    const rateChange = LoanService.addRateChange(req.params.id, req.body);
+    const rateChange = LoanService.addRateChange(req.params.id, validateAddRateChangeRequest(req.body));
     res.status(201).json({ success: true, data: rateChange } as ApiResponse<typeof rateChange>);
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to add rate change' } as ApiResponse<never>);
+    res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to add rate change' } as ApiResponse<never>);
   }
 });
 
 // 删除利率变更
 router.delete('/:id/rate-changes/:rateChangeId', (req, res) => {
   try {
-    const success = LoanService.deleteRateChange(req.params.rateChangeId);
+    const success = LoanService.deleteRateChange(req.params.id, req.params.rateChangeId);
     if (!success) {
       return res.status(404).json({ success: false, error: 'Rate change not found' } as ApiResponse<never>);
     }
@@ -114,17 +129,34 @@ router.post('/:id/prepayments', (req, res) => {
     if (!loan) {
       return res.status(404).json({ success: false, error: 'Loan not found' } as ApiResponse<never>);
     }
-    const prepayment = LoanService.addPrepayment(req.params.id, req.body);
+    const prepayment = LoanService.addPrepayment(req.params.id, validateAddPrepaymentRequest(req.body));
     res.status(201).json({ success: true, data: prepayment } as ApiResponse<typeof prepayment>);
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to add prepayment' } as ApiResponse<never>);
+    res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to add prepayment' } as ApiResponse<never>);
+  }
+});
+
+// 更新提前还款
+router.put('/:id/prepayments/:prepaymentId', (req, res) => {
+  try {
+    const prepayment = LoanService.updatePrepayment(
+      req.params.id,
+      req.params.prepaymentId,
+      validateAddPrepaymentRequest(req.body)
+    );
+    if (!prepayment) {
+      return res.status(404).json({ success: false, error: 'Prepayment not found' } as ApiResponse<never>);
+    }
+    res.json({ success: true, data: prepayment } as ApiResponse<typeof prepayment>);
+  } catch (error) {
+    res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Failed to update prepayment' } as ApiResponse<never>);
   }
 });
 
 // 删除提前还款
 router.delete('/:id/prepayments/:prepaymentId', (req, res) => {
   try {
-    const success = LoanService.deletePrepayment(req.params.prepaymentId);
+    const success = LoanService.deletePrepayment(req.params.id, req.params.prepaymentId);
     if (!success) {
       return res.status(404).json({ success: false, error: 'Prepayment not found' } as ApiResponse<never>);
     }

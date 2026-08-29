@@ -19,6 +19,7 @@ export interface RateChange {
   id: string;
   loanId: string;
   effectiveDate: string;
+  endDate?: string;
   annualRate: number;
   createdAt: string;
 }
@@ -33,6 +34,10 @@ export interface Prepayment {
   createdAt: string;
 }
 
+export interface PrepaymentWithLoan extends Prepayment {
+  loanName: string;
+}
+
 // 贷款实体
 export interface Loan {
   id: string;
@@ -43,6 +48,7 @@ export interface Loan {
   loanDate: string;
   paymentDay: number;
   initialRate: number;
+  currentRate?: number; // 当前生效利率
   minimumPayment?: number; // 自由还款模式的最低还款额
   icon?: string; // 贷款图标 (Base64/SVG)
   createdAt: string;
@@ -114,6 +120,7 @@ export interface ForecastResult {
     loanId: string;
     loanName: string;
     remainingPrincipal: number;
+    totalPeriods: number;
     remainingPeriods: number;
     payoffDate: string;
   }[];
@@ -164,6 +171,7 @@ export interface CreateFixedDebtRequest {
 // 添加利率变更请求
 export interface AddRateChangeRequest {
   effectiveDate: string;
+  endDate?: string;
   annualRate: number;
 }
 

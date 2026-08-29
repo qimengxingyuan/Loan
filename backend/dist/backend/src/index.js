@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { initDatabase } from './database/connection.js';
 import loansRouter from './routes/loans.js';
@@ -17,25 +18,35 @@ initDatabase();
 // 中间件
 app.use(cors());
 app.use(express.json());
+app.use((_req, res, next) => {
+    const requestId = crypto.randomUUID();
+    res.locals.requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    next();
+});
 // API 路由
 app.use('/api/loans', loansRouter);
 app.use('/api/fixed-debts', fixedDebtsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/forecast', forecastRouter);
 // 健康检查
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+app.use('/api', (_req, res) => {
+    res.status(404).json({ success: false, error: 'API route not found', requestId: res.locals.requestId });
 });
 // 静态文件服务（前端应用）
 app.use(express.static(STATIC_PATH));
 // 所有其他路由返回前端应用的 index.html（支持前端路由）
-app.get('*', (req, res) => {
+app.get('*', (_req, res) => {
     res.sendFile(path.join(STATIC_PATH, 'index.html'));
 });
 // 错误处理
-app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+app.use((err, _req, res, _next) => {
+    const requestId = res.locals.requestId;
+    console.error('Error:', { requestId, message: err?.message, stack: err?.stack });
+    res.status(500).json({ success: false, error: 'Internal server error', requestId });
 });
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
