@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ChevronRight, Wallet } from 'lucide-react';
 import { MobileLayout } from '../components/Layout/MobileLayout';
 import { Card, StatCard } from '../components/UI/Card';
-import { MultiProgressRing, ProgressBar } from '../components/UI/ProgressRing';
+import { ProgressBar } from '../components/UI/ProgressRing';
 
 
 import { useDashboardStore } from '../stores/dashboardStore';
@@ -13,6 +13,13 @@ import { formatCompactCurrency, getMethodLabel } from '../utils/format';
 export default function Dashboard() {
   const { dashboardData: data, fetchDashboardData: fetchDashboard } = useDashboardStore();
   const navigate = useNavigate();
+  const paidPrincipal = data?.totalPaidPrincipal || 0;
+  const paidInterest = data?.totalPaidInterest || 0;
+  const remainingPrincipal = data?.totalRemainingPrincipal || 0;
+  const distributionTotal = paidPrincipal + paidInterest + remainingPrincipal;
+  const paidPrincipalRatio = distributionTotal > 0 ? (paidPrincipal / distributionTotal) * 100 : 0;
+  const paidInterestRatio = distributionTotal > 0 ? (paidInterest / distributionTotal) * 100 : 0;
+  const remainingPrincipalRatio = distributionTotal > 0 ? (remainingPrincipal / distributionTotal) * 100 : 0;
 
   useEffect(() => {
     fetchDashboard();
@@ -63,53 +70,76 @@ export default function Dashboard() {
 
       {/* Overall Progress */}
       <Card className="mb-8">
-        <div className="flex items-center gap-6">
-          <MultiProgressRing 
-            segments={[
-              { value: data?.totalPaidPrincipal || 0, color: 'var(--success)' }, // 已还本金
-              { value: data?.totalPaidInterest || 0, color: 'var(--warning)' },  // 已付利息
-              { value: data?.totalRemainingPrincipal || 0, color: 'var(--border)' } // 待还本金作为第三段填满
-            ]} 
-            size={110} 
-            strokeWidth={12}
-            trackColor="transparent"
-          >
-            <div className="text-center">
-              <div className="text-[26px] font-bold text-[var(--accent)] font-mono leading-none">
-                {data?.overallProgress.toFixed(1)}%
+        <div>
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <div className="text-caption text-[var(--text-secondary)] font-medium">还款明细分布</div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-[32px] font-bold text-[var(--accent)] font-mono leading-none">
+                  {(data?.overallProgress || 0).toFixed(1)}%
+                </span>
+                <span className="text-small text-[var(--text-secondary)]">本金已还</span>
               </div>
-              <div className="text-small text-[var(--text-secondary)] mt-1">本金已还</div>
             </div>
-          </MultiProgressRing>
-          <div className="flex-1">
-            <div className="text-caption text-[var(--text-secondary)] mb-2 font-medium">还款明细分布</div>
-            <div className="space-y-2 mt-3">
-              <div className="flex justify-between items-center text-small">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--success)]"></div>
-                  <span className="text-[var(--text-secondary)]">已还本金</span>
-                </div>
-                <div className="font-mono font-semibold text-[var(--text-primary)]">
-                  ¥{formatCompactCurrency(data?.totalPaidPrincipal || 0)}
-                </div>
+            <div className="text-right">
+              <div className="text-caption text-[var(--text-secondary)]">总计</div>
+              <div className="text-body-medium font-mono font-semibold text-[var(--text-primary)]">
+                ¥{formatCompactCurrency(distributionTotal)}
               </div>
-              <div className="flex justify-between items-center text-small">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--warning)]"></div>
-                  <span className="text-[var(--text-secondary)]">已还利息</span>
-                </div>
-                <div className="font-mono font-semibold text-[var(--text-primary)]">
-                  ¥{formatCompactCurrency(data?.totalPaidInterest || 0)}
-                </div>
+            </div>
+          </div>
+
+          <div className="mb-5 h-4 w-full overflow-hidden rounded-full bg-[var(--border)]">
+            {distributionTotal > 0 ? (
+              <div className="flex h-full w-full">
+                <motion.div
+                  className="h-full bg-[var(--success)]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${paidPrincipalRatio}%` }}
+                  transition={{ duration: 0.7, ease: 'easeOut' }}
+                />
+                <motion.div
+                  className="h-full bg-[var(--warning)]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${paidInterestRatio}%` }}
+                  transition={{ duration: 0.7, ease: 'easeOut', delay: 0.08 }}
+                />
+                <motion.div
+                  className="h-full bg-[var(--text-tertiary)]/35"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${remainingPrincipalRatio}%` }}
+                  transition={{ duration: 0.7, ease: 'easeOut', delay: 0.16 }}
+                />
               </div>
-              <div className="flex justify-between items-center text-small pt-1 border-t border-[var(--border)]">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--border)]"></div>
-                  <span className="text-[var(--text-secondary)]">剩余应还本金</span>
-                </div>
-                <div className="font-mono font-semibold text-[var(--primary)]">
-                  ¥{formatCompactCurrency(data?.totalRemainingPrincipal || 0)}
-                </div>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg bg-[var(--success)]/8 p-3">
+              <div className="mb-2 flex items-center gap-1.5 text-small text-[var(--text-secondary)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--success)]" />
+                已还本金
+              </div>
+              <div className="font-mono text-body-medium font-semibold text-[var(--text-primary)]">
+                ¥{formatCompactCurrency(paidPrincipal)}
+              </div>
+            </div>
+            <div className="rounded-lg bg-[var(--warning)]/8 p-3">
+              <div className="mb-2 flex items-center gap-1.5 text-small text-[var(--text-secondary)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--warning)]" />
+                已还利息
+              </div>
+              <div className="font-mono text-body-medium font-semibold text-[var(--text-primary)]">
+                ¥{formatCompactCurrency(paidInterest)}
+              </div>
+            </div>
+            <div className="rounded-lg bg-[var(--background)] p-3">
+              <div className="mb-2 flex items-center gap-1.5 text-small text-[var(--text-secondary)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--text-tertiary)]/45" />
+                剩余应还本金
+              </div>
+              <div className="font-mono text-body-medium font-semibold text-[var(--primary)]">
+                ¥{formatCompactCurrency(remainingPrincipal)}
               </div>
             </div>
           </div>
